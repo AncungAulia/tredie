@@ -82,15 +82,9 @@ pub(crate) fn handler(ctx: Context<Buy>, sol_amount_in: u64, min_tokens_out: u64
         .checked_sub(fee)
         .ok_or(TredieError::FeeExceedsAmount)?;
 
-    // --- Bonding curve (constant product with mindshare ratchet) ---
-    // effective_virtual_sol = base_virtual_sol × ratchet_multiplier / 10_000
-    let effective_virtual_sol = (market.base_virtual_sol as u128)
-        .checked_mul(oracle.ratchet_multiplier_bps as u128)
-        .ok_or(TredieError::MathOverflow)?
-        .checked_div(10_000)
-        .ok_or(TredieError::MathOverflow)?;
-
-    let pool_sol = effective_virtual_sol
+    // --- Bonding curve (constant product AMM) ---
+    // Price determined purely by supply/demand: base_virtual_sol + real_sol_reserves
+    let pool_sol = (market.base_virtual_sol as u128)
         .checked_add(market.real_sol_reserves as u128)
         .ok_or(TredieError::MathOverflow)?;
 

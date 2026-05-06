@@ -2555,9 +2555,8 @@ TradePanel.handleSubmit()
     Body: { identifier, side, amount, slippageBps, trader }
     Backend:
       - validates market exists
-      - fetches oracle ratchet_multiplier_bps
       - builds create_market ix IF market doesn't exist on-chain yet
-      - builds buy/sell ix
+      - builds buy/sell ix (harga dihitung on-chain oleh program, pure AMM)
       - serializes unsigned tx (base64)
     Response: { transaction: base64String }
       ↓
@@ -2588,11 +2587,10 @@ router.post('/markets/prepare-trade', async (req, res) => {
     await marketSpawner.ensureMarket({ identifier, assetClass: detectAssetClass(identifier), source: 'user_search' });
   }
 
-  // 2. Build tx
-  const oracle = await db.getOracleForMarket(market.pda);
+  // 2. Build tx (oracle masih diperlukan sebagai account di instruction, bukan untuk harga)
   const tx = side === 'buy'
-    ? await buildBuyTx({ market, oracle, solAmount: Math.floor(amount * 1e9), minTokensOut: 0, slippageBps, trader })
-    : await buildSellTx({ market, oracle, tokenAmount: Math.floor(amount), minSolOut: 0, slippageBps, trader });
+    ? await buildBuyTx({ buyer: new PublicKey(trader), identifier: market.identifier, mintPubkey: new PublicKey(market.mint), solAmountIn: BigInt(Math.floor(amount * 1e9)), minTokensOut: 0n })
+    : await buildSellTx({ seller: new PublicKey(trader), identifier: market.identifier, mintPubkey: new PublicKey(market.mint), tokensIn: BigInt(Math.floor(amount)), minSolOut: 0n });
 
   // 3. Serialize
   const serialized = tx.serialize({ requireAllSignatures: false });
@@ -2608,11 +2606,9 @@ router.post('/markets/estimate', async (req, res) => {
   const market = await db.getMarketByIdentifier(identifier);
   if (!market) return res.json({ tokensOut: 0, solOut: 0 });
 
-  const oracle = await db.getOracleForMarket(market.pda);
-  const ratchet = oracle?.ratchet_multiplier_bps ?? 10000;
-
-  const effectiveVirtualSol = BigInt(market.base_virtual_sol) * BigInt(ratchet) / 10000n;
-  const currentSol = effectiveVirtualSol + BigInt(market.real_sol_reserves);
+  // Pure AMM: pool_sol = base_virtual_sol + real_sol_reserves
+  // Ratchet tidak mempengaruhi harga — hanya display indicator di UI
+  const currentSol = BigInt(market.base_virtual_sol) + BigInt(market.real_sol_reserves);
   const currentTokens = BigInt(market.virtual_token_supply) - BigInt(market.tokens_minted);
   const k = currentSol * currentTokens;
 

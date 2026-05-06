@@ -68,14 +68,8 @@ pub(crate) fn handler(ctx: Context<Sell>, tokens_in: u64, min_sol_out: u64) -> R
     let oracle = &ctx.accounts.oracle;
     let market = &ctx.accounts.market;
 
-    // --- Bonding curve reverse ---
-    let effective_virtual_sol = (market.base_virtual_sol as u128)
-        .checked_mul(oracle.ratchet_multiplier_bps as u128)
-        .ok_or(TredieError::MathOverflow)?
-        .checked_div(10_000)
-        .ok_or(TredieError::MathOverflow)?;
-
-    let pool_sol = effective_virtual_sol
+    // --- Bonding curve reverse (constant product AMM) ---
+    let pool_sol = (market.base_virtual_sol as u128)
         .checked_add(market.real_sol_reserves as u128)
         .ok_or(TredieError::MathOverflow)?;
 

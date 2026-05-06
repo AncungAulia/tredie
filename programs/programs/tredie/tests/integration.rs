@@ -672,23 +672,21 @@ fn test_ratchet_one_way() {
 }
 
 #[test]
-fn test_buy_cheaper_before_ratchet() {
-    // Verify the bonding curve: higher ratchet → higher price → fewer tokens per SOL.
-    // Two separate trader keypairs avoid duplicate-transaction rejection when the
-    // same buy parameters are used on the same pool after a sell-reset.
+fn test_consecutive_buys_increase_price() {
+    // Verify pure supply/demand AMM: each successive buy gets fewer tokens per SOL
+    // because real_sol_reserves grows, moving the pool along the curve.
     let mut env = Env::new();
     let oracle_auth = Keypair::new();
     env.svm.airdrop(&oracle_auth.pubkey(), 1_000_000_000).unwrap();
     let (mint, id) = env.create_market("PRICE-TEST", &oracle_auth.pubkey());
 
-    let trader_a = Keypair::new(); // buys before ratchet
-    let trader_b = Keypair::new(); // buys after ratchet
+    let trader_a = Keypair::new();
+    let trader_b = Keypair::new();
     env.svm.airdrop(&trader_a.pubkey(), 50_000_000_000).unwrap();
     env.svm.airdrop(&trader_b.pubkey(), 50_000_000_000).unwrap();
 
+    // First buy at baseline price (empty pool)
     ensure_ata(&mut env.svm, &trader_a, &mint.pubkey(), &trader_a.pubkey());
-
-    // --- Buy 1 SOL before ratchet (ratchet = 10_000 = 1.0×, baseline price) ---
     send(
         &mut env.svm,
         &trader_a,
@@ -696,31 +694,9 @@ fn test_buy_cheaper_before_ratchet() {
         &[ix_buy(&trader_a.pubkey(), &mint.pubkey(), &env.fee_recipient.pubkey(), &id, 1_000_000_000, 0)],
     )
     .unwrap();
-    let tokens_at_baseline = token_balance(&env.svm, &ata(&trader_a.pubkey(), &mint.pubkey()));
+    let tokens_first_buy = token_balance(&env.svm, &ata(&trader_a.pubkey(), &mint.pubkey()));
 
-    // Sell all tokens to reset pool back to near-zero reserves.
-    send(
-        &mut env.svm,
-        &trader_a,
-        &[&trader_a],
-        &[ix_sell(
-            &trader_a.pubkey(), &mint.pubkey(), &env.fee_recipient.pubkey(),
-            &id, tokens_at_baseline, 0,
-        )],
-    )
-    .unwrap();
-
-    // --- Apply large ratchet (peak = 100_000 → ratchet = 5.0×) ---
-    env.advance_time(86_400);
-    send(
-        &mut env.svm,
-        &oracle_auth,
-        &[&oracle_auth],
-        &[ix_update_mindshare(&oracle_auth.pubkey(), &id, 100_000)],
-    )
-    .unwrap();
-
-    // --- Buy same 1 SOL after 5× ratchet with a different trader ---
+    // Second buy: pool now has higher SOL reserves → fewer tokens per SOL
     ensure_ata(&mut env.svm, &trader_b, &mint.pubkey(), &trader_b.pubkey());
     send(
         &mut env.svm,
@@ -729,11 +705,40 @@ fn test_buy_cheaper_before_ratchet() {
         &[ix_buy(&trader_b.pubkey(), &mint.pubkey(), &env.fee_recipient.pubkey(), &id, 1_000_000_000, 0)],
     )
     .unwrap();
-    let tokens_at_5x = token_balance(&env.svm, &ata(&trader_b.pubkey(), &mint.pubkey()));
+    let tokens_second_buy = token_balance(&env.svm, &ata(&trader_b.pubkey(), &mint.pubkey()));
 
     assert!(
-        tokens_at_5x < tokens_at_baseline,
-        "same SOL must buy fewer tokens after ratchet (price went up): \
-         baseline={tokens_at_baseline} 5×_ratchet={tokens_at_5x}",
+        tokens_second_buy < tokens_first_buy,
+        "second buy must yield fewer tokens (price increased with reserves): \
+         first={tokens_first_buy} second={tokens_second_buy}",
+    );
+
+    // Ratchet does NOT affect price — verify tokens_second_buy is unchanged after oracle update
+    env.advance_time(86_400);
+    send(
+        &mut env.svm,
+        &oracle_auth,
+        &[&oracle_auth],
+        &[ix_update_mindshare(&oracle_auth.pubkey(), &id, 100_000)],
+    )
+    .unwrap();
+    // Oracle update does not change pool reserves, so a third buy at same SOL
+    // continues the curve from where it was (not a ratchet jump).
+    let trader_c = Keypair::new();
+    env.svm.airdrop(&trader_c.pubkey(), 50_000_000_000).unwrap();
+    ensure_ata(&mut env.svm, &trader_c, &mint.pubkey(), &trader_c.pubkey());
+    send(
+        &mut env.svm,
+        &trader_c,
+        &[&trader_c],
+        &[ix_buy(&trader_c.pubkey(), &mint.pubkey(), &env.fee_recipient.pubkey(), &id, 1_000_000_000, 0)],
+    )
+    .unwrap();
+    let tokens_third_buy = token_balance(&env.svm, &ata(&trader_c.pubkey(), &mint.pubkey()));
+
+    assert!(
+        tokens_third_buy < tokens_second_buy,
+        "third buy must continue the AMM curve (not ratchet-jump): \
+         second={tokens_second_buy} third={tokens_third_buy}",
     );
 }

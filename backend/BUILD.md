@@ -482,6 +482,7 @@ export function upsertMarket(market: Partial<MarketRow> & { identifier: string; 
   `).run(market);
 }
 
+// ratchetBps = display-only, tidak mempengaruhi harga on-chain
 export function updateMarketMindshare(pda: string, currentBps: number, peakBps: number, ratchetBps: number) {
   return db.prepare(`
     UPDATE markets
@@ -1353,6 +1354,11 @@ export const marketSpawner = new MarketSpawner();
 ```
 
 ### `src/services/oracle-updater.ts`
+
+> **Catatan arsitektur:** `ratchet_multiplier_bps` dari oracle **tidak lagi mempengaruhi harga buy/sell**.
+> Program sekarang menggunakan pure supply/demand AMM (`pool_sol = base_virtual_sol + real_sol_reserves`).
+> Oracle updater tetap berjalan karena ratchet masih ditampilkan di UI sebagai mindshare indicator,
+> dan nilai `ratchet_bps` masih di-emit di Trade event untuk keperluan analytics.
 
 ```typescript
 import cron from 'node-cron';
