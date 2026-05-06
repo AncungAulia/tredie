@@ -1,3 +1,8 @@
+# Internal docs — not for repo
+CLAUDE.md
+PRD.md
+claude-design.md
+
 # Build artifacts
 programs/target/
 programs/.anchor/
