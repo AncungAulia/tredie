@@ -1,0 +1,22 @@
+# Build artifacts
+programs/target/
+programs/.anchor/
+node_modules/
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# Keys — never commit private keys
+*.json.bak
+deploy-keypair.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
