@@ -3,6 +3,10 @@ CLAUDE.md
 PRD.md
 claude-design.md
 mockup/
+.agents/
+.claude/
+skills-lock.json
+iventions-main/
 
 # Build artifacts
 programs/target/
@@ -26,8 +30,3 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
-
-# Claude Code local state — per-machine, not for repo
-.agents/
-.claude/
-skills-lock.json
