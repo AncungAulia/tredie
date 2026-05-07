@@ -14,8 +14,25 @@ const PROGRAM_ID: Pubkey = solana_sdk::pubkey!("EUAyjsbak9hRXPxU4zdDWwrL1Qy8Rpwm
 const SPL_TOKEN_ID: Pubkey = solana_sdk::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 const SPL_ATA_ID: Pubkey = solana_sdk::pubkey!("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 const SYSTEM_PROGRAM_ID: Pubkey = solana_sdk::pubkey!("11111111111111111111111111111111");
+const TOKEN_METADATA_PROGRAM_ID: Pubkey = solana_sdk::pubkey!("metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s");
 
 // ─── Core helpers ──────────────────────────────────────────────────────────────
+
+fn metadata_pda(mint: &Pubkey) -> Pubkey {
+    Pubkey::find_program_address(
+        &[b"metadata", TOKEN_METADATA_PROGRAM_ID.as_ref(), mint.as_ref()],
+        &TOKEN_METADATA_PROGRAM_ID,
+    )
+    .0
+}
+
+fn borsh_string(s: &str) -> Vec<u8> {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(4 + bytes.len());
+    out.extend_from_slice(&(bytes.len() as u32).to_le_bytes());
+    out.extend_from_slice(bytes);
+    out
+}
 
 fn discriminator(ix_name: &str) -> [u8; 8] {
     use solana_sdk::hash::hash;
@@ -41,6 +58,12 @@ fn make_svm() -> LiteSVM {
             .expect("tests/fixtures/spl_associated_token_account.so missing"),
     )
     .expect("add spl_ata");
+    svm.add_program(
+        TOKEN_METADATA_PROGRAM_ID,
+        &std::fs::read(fixtures.join("mpl_token_metadata.so"))
+            .expect("tests/fixtures/mpl_token_metadata.so missing — run: solana program dump metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s tests/fixtures/mpl_token_metadata.so --url devnet"),
+    )
+    .expect("add mpl_token_metadata");
     svm.add_program_from_file(PROGRAM_ID, deploy.join("tredie.so"))
         .expect("target/deploy/tredie.so missing — run `anchor build`");
     svm
@@ -112,10 +135,13 @@ fn ix_create_market(
     base_vsol: u64,
     vtokens: u64,
     elasticity_bps: u32,
+    name: &str,
+    uri: &str,
 ) -> Instruction {
     let (factory, _) = factory_pda();
     let (market, _) = market_pda(&id);
     let (oracle, _) = oracle_pda(&market);
+    let metadata = metadata_pda(mint);
     let mut data = discriminator("create_market").to_vec();
     data.extend_from_slice(&id);
     data.push(id_len);
@@ -123,15 +149,19 @@ fn ix_create_market(
     data.extend_from_slice(&base_vsol.to_le_bytes());
     data.extend_from_slice(&vtokens.to_le_bytes());
     data.extend_from_slice(&elasticity_bps.to_le_bytes());
+    data.extend_from_slice(&borsh_string(name));
+    data.extend_from_slice(&borsh_string(uri));
     Instruction {
         program_id: PROGRAM_ID,
         accounts: vec![
             AccountMeta::new(factory, false),
             AccountMeta::new(market, false),
-            AccountMeta::new(*mint, true),  // init keypair account must sign
+            AccountMeta::new(*mint, true),
             AccountMeta::new(oracle, false),
             AccountMeta::new(*creator, true),
             AccountMeta::new_readonly(*oracle_auth, false),
+            AccountMeta::new(metadata, false),
+            AccountMeta::new_readonly(TOKEN_METADATA_PROGRAM_ID, false),
             AccountMeta::new_readonly(SPL_TOKEN_ID, false),
             AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
             AccountMeta::new_readonly(sysvar::rent::id(), false),
@@ -295,7 +325,9 @@ impl Env {
                 0,                        // asset_class = crypto
                 30_000_000_000,           // 30 SOL base
                 1_000_000_000_000_000,    // 1 B tokens (6 dec)
-                5_000,                    // elasticity = 50 %
+                5_000,                    // elasticity = 50%
+                tag,                      // name
+                "",                       // uri (empty for hackathon)
             )],
         )
         .expect("Env::create_market failed");
@@ -393,6 +425,8 @@ fn test_create_market_invalid_identifier() {
             30_000_000_000,
             1_000_000_000_000_000,
             5_000,
+            "invalid",
+            "",
         )],
     );
     assert!(result.is_err(), "identifier_len=0 must be rejected");
@@ -420,6 +454,8 @@ fn test_identifier_collision() {
             30_000_000_000,
             1_000_000_000_000_000,
             5_000,
+            "ETH-USD",
+            "",
         )],
     );
     assert!(result.is_err(), "duplicate market identifier must be rejected");
