@@ -2,7 +2,7 @@ import React from 'react'
 
 const About = () => {
   return (
-    <section className='h-screen w-full flex flex-col px-8 bg-yellow justify-center items-center  text-center'>
+    <section className='h-screen w-full flex flex-col px-8 bg-[#9C93E8] justify-center items-center  text-center'>
         <p className='font-extrabold leading-[1] text-[12vw]' >
             Designed to be remembered.
                 <br />

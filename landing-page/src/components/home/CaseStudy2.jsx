@@ -10,35 +10,35 @@ gsap.registerPlugin(ScrollTrigger, SplitText)
 const CaseStudy2 = () => {
   const slides = [
     {
-      participants: '11,195',
-      industry: 'Football',
-      eventType: 'Live Event',
-      location: 'Istanbul, Turkey',
-      quote: `"You demonstrated great adaptability and flexibility in this UCL Final, as usual, with your incredible problem-solving skills and seamless handling of last-minute requests!"`,
-      name: "Hospitality Production Manager",
-      org: "UEFA",
+      ticker: 'BONK',
+      assetClass: 'Meme Coin',
+      marketType: 'Trend Auto-Spawn',
+      network: 'Solana',
+      quote: `"BONK was spiking on every X feed. Tredie had the market live before any CEX touched it. Bought at 1.0x floor. Locked in at 3.2x after the second wave."`,
+      name: "Crypto Trader",
+      org: "Tredie Community",
       logo: "/assets/img/party-1.jpeg",
       image: "/assets/img/party-2.jpeg",
     },
     {
-      participants: '8,720',
-      industry: 'Football-2',
-      eventType: 'Super Cup',
-      location: 'Helsinki, Finland',
-      quote: `"Your team went above and beyond to deliver flawless hospitality during the Super Cup — an outstanding performance under tight timelines!"`,
-      name: "Event Operations Director",
-      org: "UEFA",
+      ticker: 'WIF',
+      assetClass: 'Meme Token',
+      marketType: 'Mindshare Spike',
+      network: 'Solana',
+      quote: `"WIF was all over Telegram. Elfa AI scored the spike and spawned the market in under 30 seconds. Floor tripled before most traders heard about it."`,
+      name: "DeFi Trader",
+      org: "Early Adopter",
       logo: "/assets/img/party-2.jpeg",
       image: "/assets/img/party-1.jpeg",
     },
     {
-      participants: '12,500',
-      industry: 'Football',
-      eventType: 'Final Draw',
-      location: 'Paris, France',
-      quote: `"Exceptional organization and precision. The event logistics and guest experience were truly world-class!"`,
-      name: "Head of Events",
-      org: "UEFA",
+      ticker: 'AAPL',
+      assetClass: 'Tokenized Equity',
+      marketType: 'Mindshare Event',
+      network: 'Solana',
+      quote: `"Apple keynote trended globally. Tredie's curve priced in the mindshare instantly. On-chain, 24/7, no waiting for a CEX to open."`,
+      name: "Equity Trader",
+      org: "Tredie Community",
       logo: "/assets/img/party-1.jpeg",
       image: "/assets/img/party-2.jpeg",
     },
@@ -169,7 +169,7 @@ const CaseStudy2 = () => {
   }, [current])
 
   return (
-    <section id='casee-study' className='relative h-[150vh] z-0 bg-[#9C93E8]'>
+    <section id='casee-study' className='relative h-[150vh] z-0 bg-white'>
       <style jsx>{`
         .line {
           overflow: hidden;
@@ -178,34 +178,34 @@ const CaseStudy2 = () => {
       `}</style>
 
       <div className='sticky top-0 h-screen w-full overflow-hidden'>
-        <div className='case-study-container h-full w-full bg-[#F3EFEB] text-black flex flex-col justify-between px-[2vw] py-[4vh]'>
+        <div className='case-study-container h-full w-full bg-[#FFFFFF] text-black flex flex-col justify-between px-[2vw] py-[4vh]'>
 
 
           
           {/* HEADER */}
           <div className='grid grid-cols-4 gap-[3vw] text-[0.8vw] uppercase tracking-[0.1vw] mb-[4vh]'>
             <div>
-              <p className='opacity-60'>Participants</p>
+              <p className='opacity-60'>Ticker</p>
               <p key={`quote-${current}`} className='text-[1vw] font-medium slider-content'>
-                {slides[current].participants}
+                {slides[current].ticker}
               </p>
             </div>
             <div>
-              <p className='opacity-60'>Industry</p>
+              <p className='opacity-60'>Asset Class</p>
               <p key={`quote-${current}`} className='text-[1vw] font-medium slider-content'>
-                {slides[current].industry}
+                {slides[current].assetClass}
               </p>
             </div>
             <div>
-              <p className='opacity-60'>Event Type</p>
+              <p className='opacity-60'>Market Type</p>
               <p key={`quote-${current}`} className='text-[1vw] font-medium slider-content'>
-                {slides[current].eventType}
+                {slides[current].marketType}
               </p>
             </div>
             <div>
-              <p className='opacity-60'>Location</p>
+              <p className='opacity-60'>Network</p>
               <p key={`quote-${current}`} className='text-[1vw] font-medium slider-content'>
-                {slides[current].location}
+                {slides[current].network}
               </p>
             </div>
           </div>
@@ -255,9 +255,9 @@ const CaseStudy2 = () => {
             </div>
 
             <div>
-              <Btn text='See full case study' />
+              <Btn text='Open Market' />
             </div>
-          </div>a
+          </div>
 
         </div>
       </div>

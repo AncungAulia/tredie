@@ -16,38 +16,38 @@ const CaseStudy = () => {
   const slides = [
     {
       id: 1,
-      participants: "11/05",
-      industry: "Football",
-      eventType: "Live Event",
-      location: "Istanbul, Turkey",
+      ticker: "BONK",
+      assetClass: "Meme Coin",
+      marketType: "Trend Auto-Spawn",
+      network: "Solana",
       testimonial:
-        '"You demonstrated great adaptability and flexibility in this UCL Final, as usual, with your incredible problem-solving skills and seamless handling of last-minute requests!"',
-      role: "Hospitality Production Manager",
-      company: "UEFA",
+        '"BONK was spiking on every X feed. Tredie had the market live before any CEX touched it. Bought at 1.0x floor. Locked in at 3.2x after the second wave."',
+      role: "Crypto Trader",
+      company: "Tredie Community",
       logo: "/assets/img/party-1.jpeg",
     },
     {
       id: 2,
-      participants: "15/08",
-      industry: "Technology",
-      eventType: "Conference",
-      location: "Barcelona, Spain",
+      ticker: "WIF",
+      assetClass: "Meme Token",
+      marketType: "Mindshare Spike",
+      network: "Solana",
       testimonial:
-        '"Outstanding execution and attention to detail. The team went above and beyond to ensure every aspect was perfect and exceeded our expectations."',
-      role: "Event Director",
-      company: "Tech Summit",
+        '"WIF was all over Telegram. Elfa AI scored the spike and spawned the market in under 30 seconds. Floor tripled before most traders heard about it."',
+      role: "DeFi Trader",
+      company: "Early Adopter",
       logo: "/assets/img/party-2.jpeg",
     },
     {
       id: 3,
-      participants: "20/12",
-      industry: "Entertainment",
-      eventType: "Festival",
-      location: "Madrid, Spain",
+      ticker: "AAPL",
+      assetClass: "Tokenized Equity",
+      marketType: "Mindshare Event",
+      network: "Solana",
       testimonial:
-        '"Exceptional professionalism and creative solutions throughout the entire planning process. Truly a pleasure to work with!"',
-      role: "Festival Coordinator",
-      company: "Music Fest",
+        '"Apple keynote trended globally. Tredie\'s curve priced in the mindshare instantly. On-chain, 24/7, no waiting for a CEX to open."',
+      role: "Equity Trader",
+      company: "Tredie Community",
       logo: "/assets/img/party-1.jpeg",
     },
   ];
@@ -141,34 +141,34 @@ const CaseStudy = () => {
           <div className="grid grid-cols-2 gap-y-6 mb-24">
             <div>
               <p className="text-[3.5vw] text-gray-700 uppercase tracking-wider mb-1">
-                Participants
+                Ticker
               </p>
               <p className="case-study-text text-[5vw]  font-medium text-gray-900">
-                {slides[currentSlide].participants}
+                {slides[currentSlide].ticker}
               </p>
             </div>
             <div>
               <p className="text-[3.5vw] text-gray-500 uppercase tracking-wider mb-1">
-                Industry
+                Asset Class
               </p>
               <p className="case-study-text text-[5vw] font-medium text-gray-900">
-                {slides[currentSlide].industry}
+                {slides[currentSlide].assetClass}
               </p>
             </div>
             <div>
               <p className="text-[3.5vw] text-gray-500 uppercase tracking-wider mb-1">
-                Event Type
+                Market Type
               </p>
               <p className="case-study-text text-[5vw] font-medium text-gray-900">
-                {slides[currentSlide].eventType}
+                {slides[currentSlide].marketType}
               </p>
             </div>
             <div>
               <p className="text-[3.5vw] text-gray-500 uppercase tracking-wider mb-1">
-                Location
+                Network
               </p>
               <p className="case-study-text text-[5vw] font-medium text-gray-900">
-                {slides[currentSlide].location}
+                {slides[currentSlide].network}
               </p>
             </div>
           </div>
@@ -211,7 +211,7 @@ const CaseStudy = () => {
           {/* See Full Case Study Button */}
           <div className="w-[60%]">
             
-            <MobileBtn text='SEE FULL CASE STUDY' />
+            <MobileBtn text='OPEN MARKET' />
           </div>
        
 

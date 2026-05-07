@@ -149,19 +149,19 @@ const QuoteContact = () => {
       </div>
 
       {/* Headings */}
-      <div className="absolute font-third z-5 top-[35%] left-[15%]  text-[6.5vw] text-yellow">
-        Quote
+      <div className="absolute font-third z-5 top-[35%] left-[15%]  text-[6.5vw] text-white">
+        LAUNCH
       </div>
-      <div className="w-[20vw] bg-yellow h-[0.2px] absolute top-[51%] left-[15%] z-5" />
-      <div className=" absolute font-third z-5 top-[35%] right-[13%] text-[6.5vw] text-yellow">
-        Contact
+      <div className="w-[20vw] bg-[#9C93E8] h-[0.2px] absolute top-[51%] left-[15%] z-5" />
+      <div className=" absolute font-third z-5 top-[35%] right-[13%] text-[6.5vw] text-white">
+        DOCS
       </div>
-      <div className="w-[22vw] bg-yellow h-[0.2px] absolute top-[51%] right-[13%] z-5" />
+      <div className="w-[22vw] bg-[#9C93E8] h-[0.2px] absolute top-[51%] right-[13%] z-5" />
 
       {/* Left Clip Path */}
       <div
         ref={leftClipRef}
-        className="absolute flex z-10  flex-col cursor-pointer items-center py-[2vw] gap-[15vw] top-0 left-0 w-1/2 h-full bg-[#E0FF98]"
+        className="absolute flex z-10  flex-col cursor-pointer items-center py-[2vw] gap-[15vw] top-0 left-0 w-1/2 h-full bg-[#9C93E8]"
         style={{
           clipPath: "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)",
         }}
@@ -190,7 +190,7 @@ const QuoteContact = () => {
       {/* Right Clip Path */}
       <div
         ref={rightClipRef}
-        className="absolute flex z-10 flex-col !cursor-pointer !pointer-events-auto items-center gap-[15vw] py-[2vw] pl-[1.2vw] top-0 right-0 w-1/2 h-full bg-[#E0FF98] "
+        className="absolute flex z-10 flex-col !cursor-pointer !pointer-events-auto items-center gap-[15vw] py-[2vw] pl-[1.2vw] top-0 right-0 w-1/2 h-full bg-[#9C93E8] "
         style={{
           clipPath: "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)",
         }}
@@ -204,7 +204,7 @@ const QuoteContact = () => {
             Want to create a market?
           </p>
           <p className="text-[1.3vw] font-medium text-center leading-[1.3]">
-            Paste a TikTok or tweet — we extract the asset and spawn a market in seconds.
+            Paste a TikTok or tweet. We extract the asset and spawn a market in seconds.
           </p>
 
           <div className="w-fit mx-auto flex items-center gap-[1vw]">

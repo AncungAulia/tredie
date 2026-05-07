@@ -288,7 +288,7 @@ const Insights = () => {
           {mids.map((no, idx) => (
             <p
               key={idx}
-              className="text-yellow text-[10vw] font-bold text-center"
+              className="text-white text-[10vw] font-bold text-center"
             >
               {no}
             </p>

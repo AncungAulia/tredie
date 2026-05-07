@@ -4,34 +4,34 @@ import 'swiper/css';
 
 const statsData = [
   {
-    number: "270+",
-    heading: "Projects Delievered",
-    content: "Big stages, small details. Each one designed to leave a mark.",
-    image: "/assets/img/about-bg.jpeg"
+    number: "5",
+    heading: "Asset Classes",
+    content: "Crypto, tokenized equities, commodities, FX, and DEX tokens. One platform for all of it.",
+    image: "https://images.unsplash.com/photo-1642790551116-18e150f248e3?auto=format&fit=crop&w=800&q=80"
   },
   {
-    number: "90%",
-    heading: "Loyal Client",
-    content: "Our clients love to come back, proof that true partnership lasts.",
-    image: "/assets/img/about-bg-2.jpeg"
+    number: "15min",
+    heading: "Oracle Cadence",
+    content: "Elfa AI re-scores real social mindshare every 15 minutes. The curve stays current, not stale.",
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
   },
   {
-    number: "21",
-    heading: "Team Nationalities",
-    content: "One team. Twenty-one perspectives. Countless cultural insights.",
-    image: "/assets/img/about-bg-3.jpeg"
+    number: "30s",
+    heading: "Market Spawn Time",
+    content: "Elfa Auto detects a mindshare spike. A market is live on-chain. No manual work, no waiting.",
+    image: "https://images.unsplash.com/photo-1618044619888-009e412ff12a?auto=format&fit=crop&w=800&q=80"
   },
   {
-    number: "30",
-    heading: "Countries Reached",
-    content: "We don't just go global. We bring the world to every event.",
-    image: "/assets/img/about-bg-4.jpeg"
+    number: "1way",
+    heading: "Floor Direction",
+    content: "Attention growth permanently raises the price floor. It never comes back down. The curve has memory.",
+    image: "https://images.unsplash.com/photo-1605792657660-596af9009e82?auto=format&fit=crop&w=800&q=80"
   },
   {
-    number: "1.2K",
-    heading: "Lightbulb moments",
-    content: "That's ideas, not coffee. Brilliant ones, brewed daily.",
-    image: "/assets/img/about-bg-5.jpeg"
+    number: "$200K",
+    heading: "In 30 Minutes",
+    content: "What Zora drew in their first 30 minutes on Solana. The market wants this. We built what they couldn't.",
+    image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80"
   }
 ];
 
@@ -44,10 +44,10 @@ const MobileStats = () => {
   };
 
   return (
-    <div className="w-full bg-white py-8 h-[80vh] mr-0 mt-20 ">
+    <div className="w-full bg-[#9C93E8] py-8 h-[80vh] mr-0 mt-20 ">
 
         <p className='text-[5vw] font-display mx-2'>
-            Where passion meets precision
+            Attention has a price. Now it has a market.
         </p>
       <Swiper
         modules={[]}

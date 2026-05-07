@@ -25,51 +25,53 @@ const HighlightedProjects = () => {
   const slides = [
     {
       id: 1,
-      title: "Adevinta Ignite:",
-      subtitle: "Empowering connection & growth",
-      category: "Events",
-      location: "Barcelona",
+      title: "BONK:",
+      subtitle: "Floor locked at 3.2x",
+      category: "Meme Coin",
+      location: "Solana",
       description:
-        "Uniting a global team into one community through a transformative corporate event designed to connect, engage and celebrate global talent",
-      bgImage: "/assets/img/about-bg.jpeg",
+        "BONK spiked on X. Elfa AI scored the mindshare in real time. Market spawned in 30 seconds. The floor never came back down.",
+      bgImage: "https://images.unsplash.com/photo-1624996379697-f01d168b1a52?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 2,
-      title: "Tech Summit:",
-      subtitle: "Innovation & Excellence",
-      category: "Conference",
-      location: "Madrid",
+      title: "WIF:",
+      subtitle: "$200K in 30 minutes",
+      category: "Meme Token",
+      location: "Solana",
       description:
-        "Bringing together industry leaders and innovators to shape the future of technology and digital transformation",
-      bgImage: "/assets/img/about-bg-2.jpeg",
+        "WIF went viral on Telegram. Tredie auto-spawned the market before any CEX listed it. Volume hit $200K in the first half hour.",
+      bgImage: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 3,
-      title: "Creative Workshop:",
-      subtitle: "Design & Collaboration",
-      category: "Workshop",
-      location: "Valencia",
+      title: "AAPL:",
+      subtitle: "Keynote priced in instantly",
+      category: "Tokenized Equity",
+      location: "Solana",
       description:
-        "An immersive experience fostering creativity and collaboration among designers and creative professionals",
-      bgImage: "/assets/img/about-bg-3.jpeg",
+        "Apple keynote trended globally. Tredie's curve priced in the mindshare spike on-chain, 24/7. No waiting for a CEX to open.",
+      bgImage: "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 4,
-      title: "Turkish Airlines: ",
-      subtitle: "Designing",
-      category: "Events",
-      location: "Barcelona",
-      description: "An immersive experience fostering creativity ",
-      bgImage: "/assets/img/about-bg-4.jpeg",
+      title: "GOLD:",
+      subtitle: "Commodity, on-chain",
+      category: "Commodity",
+      location: "Solana",
+      description:
+        "Gold surged on macro news. Tredie had a tradeable market live. No broker, no KYC, no weekend close.",
+      bgImage: "https://images.unsplash.com/photo-1611162618758-2a29a995354b?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 5,
-      title: "Tech Summit: 5",
-      subtitle: "Innovation & Excellence",
-      category: "Conference",
-      location: "Madrid",
-      description: "Bringing together industry leaders.",
-      bgImage: "/assets/img/about-bg-5.jpeg",
+      title: "DOGE:",
+      subtitle: "Floor tripled in 6 hours",
+      category: "Meme Coin",
+      location: "Solana",
+      description:
+        "Doge trended globally. Tredie spawned the market before any CEX caught up. The attention floor held.",
+      bgImage: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
     },
   ];
 
@@ -318,7 +320,7 @@ const HighlightedProjects = () => {
           {/* Top Fixed Content */}
           <div className="pt-40">
             <p className="text-white font-display text-xl mb-8">
-              Highlighted projects
+              Live market stories
             </p>
           </div>
 
@@ -327,7 +329,7 @@ const HighlightedProjects = () => {
 
           <div className="pointer-events-auto flex justify-between pb-5">
             {/* View Our Work Button */}
-            <MobileBtn text="VIEW OUR WORK" />
+            <MobileBtn text="OPEN APP" />
 
             {/* Progress Line */}
             {/* <div className="relative w-full h-0.5 bg-white/30 mb-6">

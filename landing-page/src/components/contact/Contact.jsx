@@ -105,7 +105,7 @@ const Contact = () => {
   }, []);
 
   return (
-    <div className="relative w-full h-screen px-[10vw] bg-[#E4E1DD] overflow-hidden">
+    <div className="relative w-full h-screen px-[10vw] bg-[#9C93E8] overflow-hidden">
       {/* Base Form - Get a quote */}
       <div className="flex h-full items-center">
         {/* Left Content */}
@@ -161,7 +161,7 @@ const Contact = () => {
               />
             </div>
 
-            <Btn text='Next' bgColor='bg-yellow px-[2vw] py-[0.8vw]' />
+            <Btn text='Next' bgColor='bg-[#9C93E8] px-[2vw] py-[0.8vw]' />
           </div>
         </div>
 
@@ -181,7 +181,7 @@ const Contact = () => {
       {/* Overlay Form - General Contact */}
       <div
         ref={overlayRef}
-        className="absolute inset-0 bg-[#F3EFE9] pointer-events-auto px-[10vw]"
+        className="absolute inset-0 bg-[#9C93E8] pointer-events-auto px-[10vw]"
         style={{
           clipPath: 'polygon(92.5% 0%, 100% 0%, 100% 100%, 88.5% 100%)',
         }}

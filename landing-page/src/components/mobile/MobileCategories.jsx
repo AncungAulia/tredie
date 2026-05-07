@@ -5,43 +5,47 @@ import IconButton from '../button/IconButton';
 const categoriesData = [
   {
     id: "01",
-    category: "Events",
-    title: "Global Events, Brand Activations, Experience Content",
-    backgroundColor: "bg-[#F7FFDC]",
+    category: "Trends",
+    title: "If it's blowing up on social, it's already tradeable here.",
+    backgroundColor: "bg-[#7B6ED8]",
+    textColor: "text-[#F3EFEB]",
     description:
-      "From corporate summits to viral moments, we create experiences that fuel alignment and connection between audiences and business goals.",
-    image: "/assets/img/about-bg-2.jpeg",
-    cta: "See what we create",
+      "Tredie scans X, Telegram, and on-chain data in real time. The moment a token starts trending, a market is live. Fully on-chain, in seconds. No gatekeepers.",
+    image: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80",
+    cta: "Start Trading",
   },
   {
     id: "02",
-    category: "Exhibits",
-    backgroundColor: "bg-[#D1F3F5]",
-    title: "Digital Campaigns, Social Media, Influencer Marketing",
+    category: "Attention",
+    backgroundColor: "bg-[#4C4496]",
+    textColor: "text-[#F3EFEB]",
+    title: "Attention is the alpha. Buy the signal before the crowd arrives.",
     description:
-      "We craft compelling digital narratives that resonate across platforms, building authentic connections between brands and their communities.",
-    image: "/assets/img/about-bg.jpeg",
-    cta: "Explore our work",
+      "Every spike in social volume is a trade waiting to happen. Tredie quantifies mindshare: sentiment velocity, mention counts, momentum. Buy before the crowd prices it in.",
+    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80",
+    cta: "View Signals",
   },
   {
     id: "03",
-    category: "Congresses",
-    backgroundColor: "bg-[#DDD9FF]",
-    title: "Product Launches, Experiential Retail, Pop-Up Experiences",
+    category: "Realtime AI",
+    backgroundColor: "bg-[#281F5E]",
+    textColor: "text-[#F3EFEB]",
+    title: "Elfa AI reads the room. You just have to trade it.",
     description:
-      "Transform product introductions into memorable moments that generate buzz and drive consumer engagement through innovative retail experiences.",
-    image: "/assets/img/about-bg-3.jpeg",
-    cta: "View our launches",
+      "Powered by Elfa AI, Tredie surfaces emerging narratives before they peak. Trend scores, sentiment analysis, confidence signals. All streaming in real time.",
+    image: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80",
+    cta: "See AI Signals",
   },
   {
     id: "04",
-    category: "Sports",
-    backgroundColor: "bg-[#FFDDCA]",
-    title: "Conferences, Trade Shows, B2B Engagement",
+    category: "Trending CAs",
+    backgroundColor: "bg-[#110F28]",
+    textColor: "text-[#F3EFEB]",
+    title: "X is buzzing, TG is pumping. The market is already spawned.",
     description:
-      "Elevate your presence at industry events with immersive booth experiences and strategic activations that convert connections into opportunities.",
-    image: "/assets/img/about-bg-4.jpeg",
-    cta: "Discover more",
+      "Tredie tracks contract addresses going viral on X and Telegram via Elfa AI. The moment a CA starts moving, we spin up a tradeable market automatically, on-chain.",
+    image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80",
+    cta: "Find Markets",
   },
 ];
 
@@ -54,38 +58,39 @@ const MobileCategories = () => {
           className={`${item.backgroundColor} min-h-screen flex flex-col px-6 py-8`}
         >
           {/* Header */}
-          <div className="mb-15 ">
-            <h2 className="text-6xl font-third text-neutral-800 mb-15">{item.category}</h2>
+          <div className="mb-10">
+            <h2 className={`text-6xl font-third ${item.textColor} mb-4`}>{item.category}</h2>
             <div className="flex items-start justify-between gap-4">
-              <span className="text-5xl text-neutral-800 w-[20%] font-third">{item.id}</span>
-              <p className="text-2xl font-display pt-2 w-[63%] leading-[1.2]">
+              <span className={`text-5xl ${item.textColor} opacity-20 w-[20%] font-third`}>{item.id}</span>
+              <p className={`text-2xl font-display pt-2 w-[73%] leading-[1.2] ${item.textColor}`}>
                 {item.title}
               </p>
             </div>
           </div>
 
           {/* Image */}
-          <div className=" flex items-start justify-end mb-15">
-            <div className="w-[70%] ">
-              <img
+          <div className="flex items-start justify-end mb-10">
+            <div className="w-[75%]">
+              <Image
                 src={item.image}
                 alt={item.category}
-                className="w-full h-64 bg-black object-cover rounded-2xl shadow-lg"
+                width={600}
+                height={400}
+                className="w-full h-64 object-cover rounded-2xl shadow-lg"
               />
             </div>
           </div>
 
           {/* Description */}
-          <p className="text-lg leading-[1.2] mb-15 max-w-md">
+          <p className={`text-lg leading-[1.4] mb-10 max-w-md ${item.textColor} opacity-70`}>
             {item.description}
           </p>
 
           {/* CTA */}
-          <button className="flex items-center  gap-4 text-base font-semibold group">
-            <span className='text-3xl text-neutral-900 font-semibold'>{item.cta}</span>
-            <div className='p-3 bg-white rounded-md h-10 w-10'>
-
-<Image src='/assets/icons/icon-arrow.svg' alt='icon-arrow' className='h-full w-full ' width={300} height={300} />
+          <button className="flex items-center gap-4 text-base font-semibold group">
+            <span className={`text-2xl font-semibold ${item.textColor}`}>{item.cta}</span>
+            <div className="p-3 bg-white/20 rounded-md h-10 w-10">
+              <Image src='/assets/icons/icon-arrow.svg' alt='icon-arrow' className='h-full w-full' width={300} height={300} />
             </div>
           </button>
         </div>
