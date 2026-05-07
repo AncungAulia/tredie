@@ -5,14 +5,15 @@ import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 
 const solanaConnectors = toSolanaWalletConnectors({ shouldAutoConnect: false });
 
-const heliusRpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL!;
-// Helius WebSocket: ganti https:// → wss://
-const heliusWsUrl = heliusRpcUrl.replace("https://", "wss://");
+const DEVNET_FALLBACK = "https://api.devnet.solana.com";
 
 export default function PrivyProviderWrapper({ children }: { children: React.ReactNode }) {
+  const heliusRpcUrl = process.env.NEXT_PUBLIC_HELIUS_RPC_URL ?? DEVNET_FALLBACK;
+  const heliusWsUrl = heliusRpcUrl.replace("https://", "wss://");
+
   return (
     <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID ?? ""}
       config={{
         loginMethods: ["wallet", "email"],
         appearance: {
