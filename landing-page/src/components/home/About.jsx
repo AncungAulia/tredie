@@ -23,11 +23,12 @@ export default function ClippedTextSection() {
   //  Each slide has its own background + text
   const slides = [
     {
-      image: "/assets/img/about-bg.jpeg",
+      image: "https://images.unsplash.com/photo-1624996379697-f01d168b1a52?auto=format&fit=crop&w=800&q=80",
       heading: "BONK: 1,200% mindshare spike in 24 hours",
       category: "Crypto",
       country: "Solana",
-      description: "Bought at 1.0×, sold at 3.2× ratchet",
+      description:
+        "Bought at 1.0x. Floor locked in at 3.2x as mindshare peaked.",
       lines: [
         "Built for the",
         "attention economy.",
@@ -37,7 +38,7 @@ export default function ClippedTextSection() {
       ],
     },
     {
-      image: "/assets/img/about-bg-2.jpeg",
+      image: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&w=800&q=80",
       heading: "xyz:NVDA: Earnings season mindshare surge",
       category: "Equities",
       country: "HIP-3",
@@ -51,11 +52,11 @@ export default function ClippedTextSection() {
       ],
     },
     {
-      image: "/assets/img/about-bg-3.jpeg",
+      image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=800&q=80",
       heading: "xyz:XAU: Gold mindshare peaks as Fed meets",
       category: "Commodities",
       country: "DeFi",
-      description: "Gold, oil, FX — all on-chain",
+      description: "Gold, oil, FX. All on-chain.",
       lines: [
         "Commodities.",
         "FX. Indices.",
@@ -65,8 +66,8 @@ export default function ClippedTextSection() {
       ],
     },
     {
-      image: "/assets/img/about-bg-4.jpeg",
-      heading: "WIF: Trending on X, 3× ratchet in 6 hours",
+      image: "https://images.unsplash.com/photo-1611162618758-2a29a995354b?auto=format&fit=crop&w=800&q=80",
+      heading: "WIF: Viral on X. Floor tripled in 6 hours.",
       category: "Trending CAs",
       country: "On-Chain",
       description: "Contract addresses from X & Telegram",
@@ -79,11 +80,11 @@ export default function ClippedTextSection() {
       ],
     },
     {
-      image: "/assets/img/about-bg-5.jpeg",
+      image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
       heading: "Paste a link. Get a market.",
       category: "Link-to-Market",
       country: "3 Clicks",
-      description: "TikTok, tweet, or YouTube — we extract the asset",
+      description: "TikTok, tweet, or YouTube. We extract the asset.",
       lines: [
         "Paste a tweet.",
         "Paste a TikTok.",
@@ -118,8 +119,8 @@ export default function ClippedTextSection() {
     return () => ctx.revert();
   }, []);
 
-// Prevent flickering activation/deactivation
-const isSliderActive = scrollProgress >= 0.88;
+  // Prevent flickering activation/deactivation
+  const isSliderActive = scrollProgress >= 0.88;
 
   // Auto-play timer
   useEffect(() => {
@@ -228,7 +229,7 @@ const isSliderActive = scrollProgress >= 0.88;
     const x = e.clientX;
     const y = e.clientY;
     setMousePosition({ x, y });
-    
+
     // Smooth GSAP animation with overwrite to prevent conflicts
     gsap.to(cursorRef.current, {
       x: x,
@@ -261,7 +262,11 @@ const isSliderActive = scrollProgress >= 0.88;
   };
 
   return (
-    <section ref={sectionRef} id="about" className="relative w-screen h-[250vh]">
+    <section
+      ref={sectionRef}
+      id="about"
+      className="relative w-screen h-[250vh]"
+    >
       <style jsx>{`
         @keyframes expandSingleV {
           0% {
@@ -290,7 +295,7 @@ const isSliderActive = scrollProgress >= 0.88;
       `}</style>
 
       <div
-        className="fixed top-0 z-[-1] left-0 h-screen w-full bg-cover bg-center"
+        className="fixed top-0 z-[-1] left-0 h-screen w-full bg-[#9C93E8] bg-center"
         style={{
           backgroundImage: `url('${slides[currentSlide].image}')`,
         }}
@@ -313,22 +318,19 @@ const isSliderActive = scrollProgress >= 0.88;
             style={{ zIndex: 10 }}
           >
             <div
-              className="absolute inset-0 bg-cover bg-center origin-center"
+              className="absolute inset-0 bg-[#9C93E8] bg-center origin-center"
               style={{
                 backgroundImage: `url('${slides[nextSlideIndex].image}')`,
                 clipPath: "polygon(45% 50%, 45% 50%, 45% 50%, 45% 50%)",
                 animation: "expandSingleV 1s linear forwards",
               }}
             />
-            <div className="absolute inset-0 bg-cover bg-black/20" />
+            <div className="absolute inset-0 bg-[#9C93E8] bg-black/20" />
           </div>
         )}
 
         {/* Moving text mask layer */}
-        <div
-          ref={maskRef}
-          className="absolute inset-0 moving-about z-5"
-        >
+        <div ref={maskRef} className="absolute inset-0 moving-about z-5">
           <svg
             viewBox="0 0 1512 823"
             xmlns="http://www.w3.org/2000/svg"
@@ -346,19 +348,19 @@ const isSliderActive = scrollProgress >= 0.88;
                   fontFamily="system-ui, -apple-system, sans-serif"
                 >
                   <tspan x="50%" y="184.7">
-                    Built for the{" "}
+                    Trade what the{" "}
                   </tspan>
                   <tspan x="50%" y="298.1">
-                    attention economy.
+                    internet watches.
                   </tspan>
                   <tspan x="50%" y="411.5">
-                    Trade mindshare,{" "}
+                    Every asset class.{" "}
                   </tspan>
                   <tspan x="50%" y="524.9">
-                    not just tokens.{" "}
+                    Backed by data,{" "}
                   </tspan>
                   <tspan x="50%" y="638.3">
-                    Buy the signal.
+                    not vibes.
                   </tspan>
                 </text>
               </mask>
@@ -366,7 +368,7 @@ const isSliderActive = scrollProgress >= 0.88;
             <rect
               width="100%"
               height="100%"
-              fill="#E0FF98"
+              fill="#9C93E8"
               mask="url(#text-mask)"
             />
           </svg>
@@ -389,7 +391,7 @@ const isSliderActive = scrollProgress >= 0.88;
         {isSliderActive && (
           <div
             ref={cursorRef}
-            className="absolute pointer-events-none z-50 text-black text-[0.7vw] font-semibold font-body bg-yellow backdrop-blur-sm h-[8vw] w-[8vw] rounded-full flex items-center justify-center uppercase"
+            className="absolute pointer-events-none z-50 text-black text-[0.7vw] font-semibold font-body bg-[#9C93E8] backdrop-blur-sm h-[8vw] w-[8vw] rounded-full flex items-center justify-center uppercase max-sm:hidden"
             style={{
               left: 0,
               top: 0,
@@ -405,24 +407,24 @@ const isSliderActive = scrollProgress >= 0.88;
         {(isSliderActive || showText) && (
           <div
             ref={textRef}
-            className="absolute left-[35%] w-[60%] min-h-[20vw] top-[75%] -translate-y-1/2 flex flex-col justify-between gap-3 text-white pointer-events-none"
+            className="absolute left-[35%] w-[60%] min-h-[20vw] top-[75%] -translate-y-1/2 flex flex-col justify-between gap-3 text-white pointer-events-none max-sm:left-[5vw] max-sm:w-[90vw] max-sm:top-[60%] max-sm:gap-[3vw]"
           >
             {/* Main Heading */}
             <div className="slide-line">
-              <h2 className="text-[3.5vw] font-bold w-[90%] leading-[1.1] about-slider-text">
+              <h2 className="text-[3.5vw] font-bold w-[90%] leading-[1.1] about-slider-text max-sm:text-[6.5vw] max-sm:w-full">
                 {slides[currentSlide].heading}
               </h2>
             </div>
 
             {/* Description */}
-            <div className="flex justify-between items-end">
-              <p className="text-[2vw] font-display about-slider-text">
+            <div className="flex justify-between items-end max-sm:flex-col max-sm:items-start max-sm:gap-[1.5vw]">
+              <p className="text-[2vw] font-display about-slider-text max-sm:text-[4.5vw]">
                 {slides[currentSlide].category}
               </p>
-              <p className="text-[2vw] font-display about-slider-text">
+              <p className="text-[2vw] font-display about-slider-text max-sm:text-[4.5vw]">
                 {slides[currentSlide].country}
               </p>
-              <p className="text-[1.3vw] text-gray-200 about-slider-text">
+              <p className="text-[1.3vw] text-gray-200 about-slider-text max-sm:text-[3.5vw] max-sm:leading-[1.3]">
                 {slides[currentSlide].description}
               </p>
             </div>
@@ -433,7 +435,7 @@ const isSliderActive = scrollProgress >= 0.88;
           <div className="absolute w-full h-px bg-white opacity-40 top-[50%]" />
         )}
 
-         {/* Navigation */}
+        {/* Navigation */}
         {/* {isSliderActive && (
           <div className="absolute inset-0 flex items-center justify-between px-8 pointer-events-none">
             <button
