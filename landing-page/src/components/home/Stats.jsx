@@ -19,49 +19,49 @@ const Insights = () => {
 
 const mids = [
   {
-    no: '270',
-    superScript: '+'
-  },
-  {
-    no: '90',
-    superScript: '%'
-  },
-  {
-    no: '21',
+    no: '5',
     superScript: ''
+  },
+  {
+    no: '15',
+    superScript: 'min'
   },
   {
     no: '30',
-    superScript: ''
+    superScript: 's'
   },
   {
-    no: '1.2',
+    no: '1',
+    superScript: 'way'
+  },
+  {
+    no: '200',
     superScript: 'K'
-  },,
+  },
 ];
 
   const heading = [
-    "Projects Delievered",
-    "Loyal Client",
-    "Team Nationalities",
-    "Countries Reached",
-    "Lightbulb moments",
+    "Asset Classes",
+    "Oracle Cadence",
+    "Market Spawn Time",
+    "Floor Direction",
+    "In 30 Minutes",
   ];
 
   const content = [
-    "Big stages, small details. Each one designed to leave a mark.",
-    "Our clients love to come back, proof that true partnership lasts.",
-    "One team. Twenty-one perspectives. Countless cultural insights.",
-    "We don’t just go global. We bring the world to every event.",
-    "That’s ideas, not coffee. Brilliant ones, brewed daily.",
+    "Crypto, tokenized equities, commodities, FX, and DEX tokens. One platform for all of it.",
+    "Elfa AI re-scores real social mindshare every 15 minutes. The curve stays current, not stale.",
+    "Elfa Auto detects a mindshare spike. A market is live on-chain. No manual work, no waiting.",
+    "Attention growth permanently raises the price floor. It never comes back down. The curve has memory.",
+    "What Zora drew in their first 30 minutes on Solana. The market wants this. We built what they couldn’t.",
   ];
 
   const imageSources = [
-    "/assets/img/about-bg.jpeg",
-    "/assets/img/about-bg-2.jpeg",
-    "/assets/img/about-bg-3.jpeg",
-    "/assets/img/about-bg-4.jpeg",
-    "/assets/img/about-bg-5.jpeg",
+    "https://images.unsplash.com/photo-1642790551116-18e150f248e3?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1618044619888-009e412ff12a?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1605792657660-596af9009e82?auto=format&fit=crop&w=800&q=80",
+    "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80",
   ];
 
   useEffect(() => {
@@ -267,7 +267,7 @@ const mids = [
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="w-screen h-[190vh] bg-[#F3EFEB] relative z-55"
+      className="w-screen h-[190vh] bg-[#9C93E8] relative z-55"
     >
       <div className="h-screen w-full overflow-hidden sticky top-0 flex items-center justify-between px-[5vw] z-2">
 
@@ -326,17 +326,10 @@ const mids = [
             {mids.map((n, idx) => (
               <p
   key={idx}
-  className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 text-yellow text-[10vw] font-bold"
+  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 text-[#9C93E8] text-[10vw] font-bold whitespace-nowrap"
 >
-  <span className="absolute right-[-4vw] top-[1vw] text-[5vw]">
-    {n.superScript}
-  </span>
-  {n.no}
+  {n.no}<span className="text-[5vw] align-super ml-[0.3vw]">{n.superScript}</span>
 </p>
-
-              
-
-              
 
             ))}
           </div>
@@ -347,7 +340,7 @@ const mids = [
         <div className="w-[30%] h-full pt-[10vw] space-y-[5vw]">
           <div>
             <p className="text-[2vw] font-display">
-              Where passion meets precision
+              Attention has a price. Now it has a market.
             </p>
           </div>
 
@@ -364,9 +357,6 @@ const mids = [
                   {n.no}
                 </p>
               ))}
-              <div className="w-full flex cursor-pointer justify-center mt-[5vw]">
-                <Btn text="Get to Know us" />
-              </div>
             </div>
           </div>
         </div>
