@@ -7,8 +7,7 @@ import { useLenis } from "lenis/react";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [projectOpen, setProjectOpen] = useState(false);
-  const [hoveredIndex, setHoveredIndex] = useState(null);
+    const [hoveredIndex, setHoveredIndex] = useState(null);
   const [hasAnimated, setHasAnimated] = useState(false);
     const [hasAnimated2, setHasAnimated2] = useState(false);
 
@@ -52,17 +51,14 @@ export default function Navbar() {
   useEffect(() => {
     if (!lenis) return;
 
-    if (menuOpen || projectOpen) {
+    if (menuOpen) {
       lenis.stop();
     } else {
       lenis.start();
     }
-  }, [menuOpen, projectOpen]);
+  }, [menuOpen]);
 
-  const projectOverlayRef = useRef(null);
-  const projectWrapperRef = useRef(null);
-  const animationRef = useRef(null);
-  const menuOverlayRef = useRef(null);
+        const menuOverlayRef = useRef(null);
 
   const navItems = [
     { title: "About", href: "/about" },
@@ -88,82 +84,43 @@ export default function Navbar() {
     return `polygon(100% 0%, 100% 4.75%, ${bottomLeftX}% 100%, ${leftX}% 100%, ${leftX}% ${leftY}%, 92.5% 0%)`;
   };
 
-  const handleProjectHover = (e) => {
-    if (!projectOpen || !projectOverlayRef.current) return;
+  
 
-    const x = e.clientX;
-    const width = window.innerWidth;
-
-    const newClipPath = getClipPathFromPosition(x, width);
-
-    if (animationRef.current) {
-      animationRef.current.kill();
-    }
-
-    animationRef.current = gsap.to(projectOverlayRef.current, {
-      clipPath: newClipPath,
-      duration: 0.6,
-      ease: "power2.out",
-    });
-  };
-
-  useEffect(() => {
-    const wrapper = projectWrapperRef.current;
-
-    if (!wrapper) return;
-
-    const closedClip = "circle(0% at 100% 0%)";
-    const openClip = "circle(160% at 100% 0%)";
-
-    if (projectOpen) {
-      gsap.set(projectOverlayRef.current, {
-        clipPath:
-          "polygon(100% 0%, 100% 4.75%, 66.25% 100%, 0% 100%, 0% 75.25%, 92.5% 0%)",
-        borderBottomLeftRadius: "5vw",
-      });
-
-      gsap.fromTo(
-        wrapper,
-        { clipPath: closedClip },
-        {
-          clipPath: openClip,
-          duration: 0.8,
-          ease: "power1.inOut",
-        }
-      );
-    } else {
-      gsap.to(wrapper, {
-        clipPath: closedClip,
-        duration: 0.8,
-        ease: "power1.inOut",
-      });
-    }
-  }, [projectOpen]);
+  
 
   useEffect(() => {
     const overlay = menuOverlayRef.current;
     if (!overlay) return;
 
-    const closedClip = "circle(0% at 0% 0%)";
-    const openClip = "circle(160% at 0% 0%)";
+    let ctx = gsap.matchMedia();
 
-    if (menuOpen) {
-      gsap.fromTo(
-        overlay,
-        { clipPath: closedClip },
-        {
-          clipPath: openClip,
-          duration: 0.8,
-          ease: "power1.inOut",
-        }
-      );
-    } else {
-      gsap.to(overlay, {
-        clipPath: closedClip,
-        duration: 0.8,
-        ease: "power1.inOut",
-      });
-    }
+    ctx.add("(max-width: 639px)", () => {
+      // Mobile: simple translateX sidebar
+      gsap.set(overlay, { clipPath: "none" });
+      if (menuOpen) {
+        gsap.fromTo(
+          overlay,
+          { x: "-100%" },
+          { x: "0%", duration: 0.4, ease: "power2.out" }
+        );
+      } else {
+        gsap.to(overlay, { x: "-100%", duration: 0.35, ease: "power2.in" });
+      }
+    });
+
+    ctx.add("(min-width: 640px)", () => {
+      // Desktop: circle clip-path
+      gsap.set(overlay, { x: "0%" });
+      const closedClip = "circle(0% at 0% 0%)";
+      const openClip = "circle(160% at 0% 0%)";
+      if (menuOpen) {
+        gsap.fromTo(overlay, { clipPath: closedClip }, { clipPath: openClip, duration: 0.8, ease: "power1.inOut" });
+      } else {
+        gsap.to(overlay, { clipPath: closedClip, duration: 0.8, ease: "power1.inOut" });
+      }
+    });
+
+    return () => ctx.revert();
   }, [menuOpen]);
 
   const handleMenuHover = () => {
@@ -189,89 +146,23 @@ export default function Navbar() {
     });
   };
 
-  const handleProjectCross = () => {
-    if (!hasAnimated2) {
-      setHasAnimated2(true);
-      setTimeout(() => setHasAnimated2(false), 500);
-    }
-    gsap.fromTo(
-      ".project-below-text",
-      {
-        y: "1vw",
-        opacity: 0,
-      },
-      {
-        y: "0vw",
-        opacity: 1,
-        duration: 0.3,
-      }
-    );
-    gsap.to(".project-top-text", {
-      y: "-1vw",
-      duration: 0.3,
-    });
-  };
+  
 
   const leaveNav = () => {
     gsap.to(".menu-top-text", { y: "0vw", duration: 0, ease: "linear" });
     gsap.to(".menu-below-text", { y: "1vw", duration: 0, ease: "linear" });
   };
 
-  const handleProjectEnter = () => {
-    gsap.fromTo(
-      ".project-below-text",
-      {
-        y: "2vw",
-        opacity: 0,
-      },
-      {
-        y: "0vw",
-        opacity: 1,
-        duration: 0.3,
-      }
-    );
-    gsap.to(".project-top-text", {
-      y: "-2vw",
-      duration: 0.3,
-    });
-  };
-
-  const LeaveProjectHover = () => {
-    gsap.to(".project-top-text", { y: "0vw", duration: 0, ease: "linear" });
-    gsap.to(".project-below-text", { y: "2vw", duration: 0, ease: "linear" });
-  };
-
-  const handleEnter = () => {
-  const lines = gsap.utils.toArray('.project-line');
   
- 
+
   
-  gsap.fromTo(
-    lines,
-    { scaleX: 1 },
-    {
-      scaleX: 0,
-      duration: 0.25,
-      stagger: 0.05,
-      ease: "power2.inOut",
-      transformOrigin: "left",
-      onComplete: () => {
-        gsap.to(lines, {
-          scaleX: 1,
-          duration:1,
-          stagger: 0.05,
-          ease: "power2.inOut",
-          transformOrigin: "left",
-        });
-      },
-    }
-  );
-};
+
+  
     
 
   return (
     <div id="navbar-over" className="space-y-0">
-      <div className="w-full flex  origin-top nav-menu-item-first justify-center fixed top-0 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert">
+      <div className="w-full flex  origin-top nav-menu-item-first justify-center fixed top-0 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert max-sm:h-[8vw] max-sm:pt-[2vw]">
         <Image
           src="/assets/svg/icon-logo.svg"
           alt="logo"
@@ -283,21 +174,20 @@ export default function Navbar() {
 
       <nav
         id="navv"
-        className="fixed top-0 left-0 right-0 w-full h-[3vw] flex items-start justify-between z-9999"
+        className="fixed top-0 left-0 right-0 w-full h-[3vw] flex items-start justify-between z-9999 max-sm:h-[14vw]"
       >
         {/* Left - Menu */}
         <button
           onClick={() => {
-            if (projectOpen) setProjectOpen(false);
             setMenuOpen(!menuOpen);
           }}
           onMouseEnter={handleMenuHover}
           // onMouseLeave={leaveNav}
-          className={`flex  overflow-hidden  nav-menu-item items-center  gap-[1.5vw] cursor-pointer outline-none bg-yellow px-[1.5vw] h-full py-[1vw] rounded-br-[1vw]   z-10000 relative ${menuOpen? '': 'group'}`}
+          className={`flex  overflow-hidden  nav-menu-item items-center  gap-[1.5vw] cursor-pointer outline-none bg-[#9C93E8] px-[1.5vw] h-full py-[1vw] rounded-br-[1vw]   z-10000 relative max-sm:px-[4vw] max-sm:gap-[3vw] max-sm:rounded-br-[3vw] ${menuOpen? '': 'group'}`}
         >
-          <div className="flex flex-col w-[1vw] justify-start gap-[0.2vw] relative group cursor-pointer">
+          <div className="flex flex-col w-[1vw] justify-start gap-[0.2vw] relative group cursor-pointer max-sm:w-[5vw] max-sm:gap-[0.7vw]">
             <span
-              className={`block h-px  bg-black transform origin-left ease-in-out transition-transform duration-100 ${
+              className={`block h-px max-sm:h-[2px]  bg-black transform origin-left ease-in-out transition-transform duration-100 ${
                 hasAnimated ? "scale-x-0" : "scale-x-100"
               } ${
                 menuOpen
@@ -307,7 +197,7 @@ export default function Navbar() {
             ></span>
 
             <span
-              className={`block h-px  bg-black transform origin-left ease-in-out transition-transform duration-500 delay-100 ${
+              className={`block h-px max-sm:h-[2px]  bg-black transform origin-left ease-in-out transition-transform duration-500 delay-100 ${
                 hasAnimated ? "scale-x-0" : "scale-x-100"
               } ${
                 menuOpen
@@ -316,18 +206,18 @@ export default function Navbar() {
               }`}
             ></span>
           </div>
-          <div className={`relative  flex justify-center items-start h-[1vw] w-[2.5vw] overflow-hidden ${menuOpen? 'group': ''}`}>
+          <div className={`relative  flex justify-center items-start h-[1vw] w-[2.5vw] overflow-hidden max-sm:hidden ${menuOpen? 'group': ''}`}>
          {!menuOpen ? (
   
    
       <div className="w-fit px-[0.1vw] flex flex-col group-hover:translate-y-[-1.25vw] group-hover:transition-all group-hover:duration-300 gap-[0.2vw] items-center justify-center">
         <div className="project-top-text w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">
+          <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">
             MENU
           </span>
         </div>
         <div className="project-top-text group-hover:transition-all group-hover:duration-300 w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">
+          <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">
             MENU
           </span>
         </div>
@@ -335,13 +225,13 @@ export default function Navbar() {
 
   ) : (
   
-    <div  className="absolute top-1/2 left-1/2  !w-[7vw] h-[1vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden">
+    <div  className="absolute top-1/2 left-1/2  !w-[7vw] h-[1vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden max-sm:!w-[22vw] max-sm:h-[5vw]">
       <div className="w-fit mx-auto px-[0.1vw] flex flex-col group-hover:translate-y-[-1.25vw] group-hover:transition-all group-hover:duration-300 gap-[0.2vw] items-center justify-center">
         <div className="project-top-text w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">CLOSE</span>
+          <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">CLOSE</span>
         </div>
         <div className="project-top-text group-hover:transition-all group-hover:duration-300 w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">CLOSE</span>
+          <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">CLOSE</span>
         </div>
 
        
@@ -356,106 +246,50 @@ export default function Navbar() {
         </button>
 
         {/* Right - Got a Project */}
-      <button
-  disabled={menuOpen}
-  onClick={() => {
-    if (menuOpen) setMenuOpen(false);
-    setProjectOpen(!projectOpen);
-  }}
-  className={`relative nav-menu-item  flex flex-col items-center overflow-hidden justify-center  cursor-pointer outline-none bg-yellow px-[1vw] h-full py-[1vw] rounded-bl-[1vw]   ${
-    menuOpen ? "z-9995" : "z-10002 group"
-  }`}
->
-   <div onMouseEnter={handleMenuHover} className="relative  w-[7vw] flex justify-center items-start h-[1vw] overflow-hidden">
-
- 
-  {!projectOpen ? (
-  
-   
-      <div className="w-fit px-[0.1vw] flex flex-col group-hover:translate-y-[-1.25vw] group-hover:transition-all group-hover:duration-300 gap-[0.2vw] items-center justify-center">
-        <div className="project-top-text w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">
-            LAUNCH APP
-          </span>
-        </div>
-        <div className="project-top-text group-hover:transition-all group-hover:duration-300 w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">
-            LAUNCH APP
-          </span>
-        </div>
-      </div>
-
-  ) : (
-  
-    <div  className="absolute top-1/2 left-1/2 group w-[7vw] h-[1vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden">
-      <div className="w-fit mx-auto px-[0.1vw] flex flex-col group-hover:translate-y-[-1.25vw] group-hover:transition-all group-hover:duration-300 gap-[0.2vw] items-center justify-center">
-        <div className="project-top-text w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">CLOSE</span>
-        </div>
-        <div className="project-top-text group-hover:transition-all group-hover:duration-300 w-full h-full flex items-center justify-center overflow-hidden">
-          <span className="font-body text-[0.7vw] font-semibold text-black">CLOSE</span>
-        </div>
-
-       
-       
-      </div>
-
-    </div>
-      
-  )}
-     <div 
-          className={`w-fit flex justify- items-center absolute group duration-300 ease-in-out -translate-y-1/2 -translate-x-1/2 top-1/2 right-0 ${
-            projectOpen
-              ? " opacity-100"
-              : "opacity-0  "
-          }`}
-          
+        <Link
+          href="https://app.tredie.fun"
+          className="relative nav-menu-item flex flex-col items-center overflow-hidden justify-center cursor-pointer outline-none bg-[#9C93E8] px-[1vw] h-full py-[1vw] rounded-bl-[1vw] max-sm:px-[4vw] max-sm:rounded-bl-[3vw] z-10002 max-sm:z-[9998] group"
         >
-
-          <div className="flex flex-col w-[1vw] justify-start gap-[0.2vw] relative group  cursor-pointer">
-            <span
-              className={`block h-px  bg-black transform origin-left ease-in-out transition-transform duration-500 ${
-                hasAnimated ? "scale-x-0" : "scale-x-100"
-              } rotate-45 translate-y-[-0.09vw] w-[50%]`}
-            ></span>
-
-            <span
-              className={`block h-px  bg-black transform origin-left ease-in-out transition-transform duration-500 delay-100 ${
-                hasAnimated ? "scale-x-0" : "scale-x-100"
-              } -rotate-45  w-[50%]`}
-            ></span>
+          <div className="relative w-[7vw] flex justify-center items-start h-[1vw] overflow-hidden max-sm:w-[24vw] max-sm:h-[5vw]">
+            <div className="w-fit px-[0.1vw] flex flex-col group-hover:translate-y-[-1.25vw] group-hover:transition-all group-hover:duration-300 gap-[0.2vw] items-center justify-center">
+              <div className="project-top-text w-full h-full flex items-center justify-center overflow-hidden">
+                <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">
+                  LAUNCH APP
+                </span>
+              </div>
+              <div className="project-top-text group-hover:transition-all group-hover:duration-300 w-full h-full flex items-center justify-center overflow-hidden">
+                <span className="font-body text-[0.7vw] max-sm:text-[3.5vw] font-semibold text-black">
+                  LAUNCH APP
+                </span>
+              </div>
+            </div>
           </div>
-         
-        </div>
-      </div>
-  
-
-</button>
+        </Link>
 
 
         {/* MENU OVERLAY */}
 
         <div
           ref={menuOverlayRef}
-          className="fixed top-0 left-0 z-[9999] w-[128vw] h-[125vh] rounded-br-full overflow-hidden "
+          className="fixed top-0 left-0 z-[9999] w-[128vw] h-[125vh] rounded-br-full overflow-hidden max-sm:w-[75vw] max-sm:h-screen max-sm:rounded-none max-sm:shadow-2xl"
           style={{ clipPath: "circle(0% at 0% 0%)" }}
         >
           {" "}
           <div
-            className={` w-full h-full navbar-clip-path transition-all duration-700 ${
+            className={` w-full h-full navbar-clip-path transition-all duration-700 max-sm:!bg-white max-sm:![clip-path:none] ${
               menuOpen ? "pointer-events-auto" : "pointer-events-none"
             } origin-top-left`}
           >
             <div
-              className={`flex flex-col items-end justify-end origin-left mr-[29vw] pb-[15vw] h-full text-center space-y-6  ${
+              className={`flex flex-col items-end justify-end origin-left mr-[29vw] pb-[15vw] h-full text-center space-y-6 max-sm:mr-0 max-sm:px-[8vw] max-sm:items-start max-sm:justify-start max-sm:pt-[25vw] max-sm:pb-[10vw] max-sm:space-y-4  ${
                 menuOpen ? "opacity-100 delay" : "opacity-100"
               }`}
             >
-              <div className="font-medium text-right  flex flex-col items-end justify-end">
+              <div className="font-medium text-right flex flex-col items-end justify-end max-sm:text-left max-sm:items-start max-sm:gap-[2vw]">
                 {navItems.map((item, i) => (
                   <p
                     key={i}
-                    className={`leading-none w-fit h-fit  text-right! transition-opacity ease-in-out duration-300 ${
+                    className={`leading-none w-fit h-fit text-right! transition-opacity ease-in-out duration-300 ${
                       hoveredIndex !== null && hoveredIndex !== i
                         ? "opacity-50"
                         : "opacity-100"
@@ -465,79 +299,12 @@ export default function Navbar() {
                   >
                     <Link
                       href={item.href}
-                      className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300"
+                      className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300 max-sm:text-[8vw] max-sm:text-left max-sm:text-black"
                     >
                       {item.title}
                     </Link>
                   </p>
                 ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* PROJECT OVERLAY */}
-        <div
-          ref={projectWrapperRef}
-          className="fixed top-0 right-0 z-10001 w-[130vw] h-[135vh] rounded-bl-full overflow-hidden"
-          style={{
-            clipPath: "circle(0% at 100% 0%)",
-          }}
-          onMouseMove={handleProjectHover}
-        >
-          <div
-            ref={projectOverlayRef}
-            className={` bg-yellow w-full h-screen ${
-              projectOpen ? "pointer-events-auto z-0" : "pointer-events-none"
-            }`}
-          >
-            <div className="h-[100%] w-full px-[2vw] flex ">
-              <div className="w-[55%] flex flex-col items-end justify-center">
-                <div className="w-[40%] cursor-pointer">
-                  <p className="text-[1.8vw]  leading-[1.2]]  font-display pb-[2vw]">
-                    Get Started
-                  </p>
-
-                  <div className="w-[28vw] space-y-[2vw]">
-                    <div className="group">
-                      <p className="text-[4vw]  relative tracking-tighter  leading-[1.1] font-third ">
-                        Ready to trade
-                        <span className="absolute bottom-0 scale-x-0 transition-all ease-out duration-1000 origin-left group-hover:scale-x-100 left-0 w-full h-[0.2px] bg-black"></span>
-                      </p>
-                      <p className="text-[4vw] tracking-tighter w-fit relative  leading-[1.1]  font-third ">
-                        attention?
-                        <span className="absolute bottom-0 scale-x-0 transition-all ease-out duration-1000 origin-left group-hover:scale-x-100 left-0 w-full h-[0.2px] bg-black"></span>
-                      </p>
-                    </div>
-                    <p className="text-[1.3vw] w-[80%] font-medium  leading-[1.3]">
-                      Connect your wallet or sign in with email. Start trading mindshare in seconds.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-[45%] flex flex-col items-end justify-center">
-                <div className="w-[70%] cursor-pointer">
-                  <p className="text-[1.8vw] leading-none  font-display pb-[2vw]">
-                    Create a Market
-                  </p>
-
-                  <div className="w-[33vw]   space-y-[2vw]">
-                    <div className="group">
-                      <p className="text-[4vw]  relative  leading-[1.1] tracking-tighter  font-third font ">
-                        Want to create
-                        <span className="absolute bottom-0 scale-x-0 transition-all ease-in-out duration-400 origin-left group-hover:scale-x-100 left-0 w-full h-[0.2px] bg-black"></span>
-                      </p>
-                      <p className="text-[4vw] w-fit relative  leading-[1.1] tracking-tighter font-third ">
-                        a market?
-                        <span className="absolute bottom-0 scale-x-0 transition-all ease-in-out duration-400 origin-left group-hover:scale-x-100 left-0 w-full h-[0.2px] bg-black"></span>
-                      </p>
-                    </div>
-                    <p className="text-[1.3vw] w-[80%] font-medium  leading-[1.3]">
-                      Paste any social link and we'll extract the asset and spawn a market instantly.
-                    </p>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -550,15 +317,8 @@ export default function Navbar() {
           } pointer-events-none z-[9998]`}
         ></div>
 
-        {/* BLACK OVERLAY for PROJECT (higher z-index) */}
-        <div
-          className={`fixed inset-0 bg-black transition-opacity duration-700 ${
-            projectOpen
-              ? "opacity-60 pointer-events-auto"
-              : "opacity-0 pointer-events-none"
-          } z-[10000]`}
-        ></div>
-      </nav>
+        
+      </nav> 
     </div>
   );
 }
