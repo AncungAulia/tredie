@@ -77,7 +77,7 @@ pub(crate) fn handler(
         identifier_len > 0 && identifier_len as usize <= IDENTIFIER_MAX_LEN,
         TredieError::InvalidIdentifier
     );
-    require!(asset_class <= 5, TredieError::InvalidAssetClass);
+    require!(asset_class <= 6, TredieError::InvalidAssetClass);
     require!(base_virtual_sol > 0, TredieError::InvalidAmount);
     require!(virtual_token_supply > 0, TredieError::InvalidAmount);
     require!(elasticity_bps <= 20_000, TredieError::InvalidElasticity);

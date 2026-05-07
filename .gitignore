@@ -26,3 +26,8 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Claude Code local state — per-machine, not for repo
+.agents/
+.claude/
+skills-lock.json

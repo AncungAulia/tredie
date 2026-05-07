@@ -1,0 +1,318 @@
+import { Hono } from "hono";
+import { z } from "zod";
+import { PublicKey } from "@solana/web3.js";
+import * as db from "../db";
+import { sql } from "../db";
+import { buildBuyTx, buildSellTx } from "../solana/instructions";
+import { marketSpawner } from "../services/market-spawner";
+import { connection } from "../solana/connection";
+import { oraclePda } from "../solana/pda";
+import { decodeOracle } from "../solana/decoder";
+import * as elfaClient from "../elfa/client";
+
+export const marketsRoutes = new Hono();
+
+const jsonSafe = (v: unknown): unknown =>
+  JSON.parse(
+    JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
+  );
+
+marketsRoutes.get("/", async (c) => {
+  const assetClass = c.req.query("assetClass");
+  const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
+  const sortBy = c.req.query("sortBy") ?? "mindshare";
+  const order = c.req.query("order") === "asc" ? "ASC" : "DESC";
+
+  const sortCol =
+    sortBy === "volume" ? sql`real_sol_reserves` : sql`current_mindshare_bps`;
+  const dir = order === "ASC" ? sql`ASC` : sql`DESC`;
+
+  const rows =
+    assetClass !== undefined && assetClass !== ""
+      ? await sql`
+          SELECT * FROM markets WHERE asset_class = ${Number(assetClass)}
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+        `
+      : await sql`
+          SELECT * FROM markets
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+        `;
+
+  const [{ count }] =
+    assetClass !== undefined && assetClass !== ""
+      ? await sql<{ count: bigint }[]>`
+          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ${Number(assetClass)}
+        `
+      : await sql<{ count: bigint }[]>`
+          SELECT COUNT(*)::bigint as count FROM markets
+        `;
+
+  return c.json(jsonSafe({ markets: rows, total: count }));
+});
+
+marketsRoutes.get("/:identifier", async (c) => {
+  const id = decodeURIComponent(c.req.param("identifier"));
+  const market = await db.getMarketByIdentifier(id);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  const [history, trades] = await Promise.all([
+    db.getMindshareHistory(market.pda, 200),
+    db.getRecentTrades(market.pda, 50),
+  ]);
+
+  return c.json(
+    jsonSafe({ market, mindshareHistory: history, recentTrades: trades }),
+  );
+});
+
+marketsRoutes.get("/:identifier/trades", async (c) => {
+  const id = decodeURIComponent(c.req.param("identifier"));
+  const limit = Math.min(Number(c.req.query("limit") ?? 50), 200);
+  const market = await db.getMarketByIdentifier(id);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+  const trades = await db.getRecentTrades(market.pda, limit);
+  return c.json(jsonSafe({ trades }));
+});
+
+// On-chain oracle account state untuk live mindshare/ratchet meter.
+marketsRoutes.get("/:identifier/oracle", async (c) => {
+  const id = decodeURIComponent(c.req.param("identifier"));
+  const market = await db.getMarketByIdentifier(id);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  const marketPubkey = new PublicKey(market.pda);
+  const [oraclePubkey] = oraclePda(marketPubkey);
+  const acc = await connection.getAccountInfo(oraclePubkey);
+  if (!acc) return c.json({ error: "Oracle account not found on-chain" }, 404);
+
+  try {
+    const decoded = decodeOracle(acc.data);
+    return c.json(
+      jsonSafe({
+        oracle: {
+          ...decoded,
+          pda: oraclePubkey.toBase58(),
+          // Convert unix seconds to ISO for convenience
+          lastUpdateAt: new Date(Number(decoded.lastUpdateUnix) * 1000).toISOString(),
+        },
+      }),
+    );
+  } catch (e: any) {
+    return c.json({ error: `Failed to decode oracle: ${e.message}` }, 500);
+  }
+});
+
+// Derived OHLC candles dari trades. Fallback ke mindshare_history kalau gak ada trade.
+const ohlcSchema = z.object({
+  interval: z.enum(["5m", "15m", "1h", "4h", "1d"]).default("1h"),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+
+const INTERVAL_SECONDS: Record<string, number> = {
+  "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400,
+};
+
+marketsRoutes.get("/:identifier/ohlc", async (c) => {
+  const id = decodeURIComponent(c.req.param("identifier"));
+  const parsed = ohlcSchema.safeParse({
+    interval: c.req.query("interval"),
+    limit: c.req.query("limit"),
+  });
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const { interval, limit } = parsed.data;
+  const intervalSec = INTERVAL_SECONDS[interval];
+
+  const market = await db.getMarketByIdentifier(id);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  // Compute price per trade as sol_amount / token_amount × 1e9 (lamports per token).
+  // Bucket by floor(block_time / intervalSec).
+  const candles = await sql<{
+    bucket: bigint;
+    open: number;
+    close: number;
+    high: number;
+    low: number;
+    volume: bigint;
+    trade_count: bigint;
+  }[]>`
+    WITH priced AS (
+      SELECT
+        (block_time / ${intervalSec}) * ${intervalSec} AS bucket,
+        block_time,
+        sol_amount,
+        token_amount,
+        (sol_amount::numeric / NULLIF(token_amount, 0)::numeric) AS price
+      FROM trades
+      WHERE market_pda = ${market.pda} AND token_amount > 0
+    ),
+    ranked AS (
+      SELECT
+        bucket,
+        ROW_NUMBER() OVER (PARTITION BY bucket ORDER BY block_time ASC) AS rn_asc,
+        ROW_NUMBER() OVER (PARTITION BY bucket ORDER BY block_time DESC) AS rn_desc,
+        price,
+        sol_amount
+      FROM priced
+    )
+    SELECT
+      bucket,
+      MAX(price) FILTER (WHERE rn_asc = 1)::float AS open,
+      MAX(price) FILTER (WHERE rn_desc = 1)::float AS close,
+      MAX(price)::float AS high,
+      MIN(price)::float AS low,
+      SUM(sol_amount)::bigint AS volume,
+      COUNT(*)::bigint AS trade_count
+    FROM ranked
+    GROUP BY bucket
+    ORDER BY bucket DESC
+    LIMIT ${limit}
+  `;
+
+  // Fallback: kalo gak ada trade sama sekali, derive proxy series dari mindshare_history.
+  // Frontend bisa show "no trades yet, mindshare-only view".
+  if (candles.length === 0) {
+    const history = await sql<{ bucket: bigint; bps: number }[]>`
+      SELECT
+        ((recorded_at / 1000) / ${intervalSec}) * ${intervalSec} AS bucket,
+        AVG(current_bps)::int AS bps
+      FROM mindshare_history
+      WHERE market_pda = ${market.pda}
+      GROUP BY bucket
+      ORDER BY bucket DESC
+      LIMIT ${limit}
+    `;
+    return c.json(
+      jsonSafe({
+        candles: [],
+        mindshareSeries: history.reverse(),
+        source: "mindshare_history",
+        interval,
+      }),
+    );
+  }
+
+  return c.json(
+    jsonSafe({
+      candles: candles.reverse(),
+      source: "trades",
+      interval,
+    }),
+  );
+});
+
+// AI thesis untuk market detail page (Elfa Chat).
+marketsRoutes.get("/:identifier/ai-context", async (c) => {
+  const id = decodeURIComponent(c.req.param("identifier"));
+  const market = await db.getMarketByIdentifier(id);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  // Trend markets pakai prompt khusus (gak ada price chart, fokus narrative).
+  // Tradeable assets pakai analysisType=chat dengan ticker context.
+  let prompt: string;
+  if (market.asset_class === 6) {
+    const keyword = elfaClient.trendIdToKeyword(market.identifier) ?? market.identifier;
+    prompt =
+      `Give me a 2-3 sentence analysis of the cultural moment or trend "${keyword}". ` +
+      `Why is it currently trending? What audience or behavior is driving it? ` +
+      `What might cause it to fade or accelerate in the next 24-48h?`;
+  } else {
+    const symbol = market.identifier;
+    prompt =
+      `Give me a 2-3 sentence trade thesis for ${symbol}. Cover current sentiment, ` +
+      `key catalysts in the next 24-48h, and main risk factors. Be concise and concrete.`;
+  }
+
+  try {
+    const res = await elfaClient.elfaChat(prompt, "fast");
+    return c.json({
+      identifier: market.identifier,
+      assetClass: market.asset_class,
+      message: res.message,
+      sessionId: res.sessionId,
+    });
+  } catch (e: any) {
+    return c.json({ error: `Elfa Chat failed: ${e.message}` }, 502);
+  }
+});
+
+const prepareTradeSchema = z.object({
+  identifier: z.string(),
+  side: z.enum(["buy", "sell"]),
+  solAmount: z.number().optional(),
+  tokenAmount: z.string().optional(),
+  slippageBps: z.number().int().nonnegative().default(100),
+  trader: z.string(),
+});
+
+marketsRoutes.post("/prepare-trade", async (c) => {
+  const body = prepareTradeSchema.safeParse(await c.req.json());
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { identifier, side, solAmount, tokenAmount, trader } = body.data;
+
+  const market = await db.getMarketByIdentifier(identifier);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  const traderPk = new PublicKey(trader);
+  const mintPk = new PublicKey(market.mint);
+
+  let tx;
+  if (side === "buy") {
+    if (solAmount === undefined)
+      return c.json({ error: "solAmount required for buy" }, 400);
+    const solIn = BigInt(Math.floor(solAmount * 1e9));
+    tx = await buildBuyTx({
+      buyer: traderPk,
+      identifier,
+      mintPubkey: mintPk,
+      solAmountIn: solIn,
+      minTokensOut: 0n,
+    });
+  } else {
+    if (!tokenAmount)
+      return c.json({ error: "tokenAmount required for sell" }, 400);
+    tx = await buildSellTx({
+      seller: traderPk,
+      identifier,
+      mintPubkey: mintPk,
+      tokensIn: BigInt(tokenAmount),
+      minSolOut: 0n,
+    });
+  }
+
+  return c.json({
+    transaction: tx
+      .serialize({ requireAllSignatures: false })
+      .toString("base64"),
+  });
+});
+
+const prepareCreateSchema = z.object({
+  identifier: z.string().min(1).max(32),
+  source: z
+    .enum(["user_search", "user_link_paste", "auto_spawn"])
+    .default("user_search"),
+  assetClass: z.number().int().min(0).max(6).default(0),
+  sourceMetadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+marketsRoutes.post("/prepare-create", async (c) => {
+  const body = prepareCreateSchema.safeParse(await c.req.json());
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const existing = await db.getMarketByIdentifier(body.data.identifier);
+  if (existing)
+    return c.json(jsonSafe({ market: existing, alreadyExists: true }));
+
+  try {
+    const market = await marketSpawner.ensureMarket({
+      identifier: body.data.identifier,
+      assetClass: body.data.assetClass,
+      source: body.data.source,
+      sourceMetadata: body.data.sourceMetadata ?? null,
+    });
+    return c.json(jsonSafe({ market, alreadyExists: false }));
+  } catch (e: any) {
+    return c.json({ error: e.message }, 500);
+  }
+});
