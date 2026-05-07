@@ -170,7 +170,9 @@ export default nextConfig;
     "jsx": "preserve",
     "incremental": true,
     "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./*"] }
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
@@ -181,75 +183,138 @@ export default nextConfig;
 
 ## 4. Folder Structure
 
+Prinsip arsitektur:
+- **`app/`** — routing & layout only (Next.js convention). Setiap `page.tsx` hanya re-export module dari `src/`.
+- **`src/`** — seluruh source code. Semua import pakai alias `@/*` → `./src/*`.
+- **Rule of two**: component masuk `src/components/` kalau dipakai ≥2 module. Kalau cuma satu module, masuk `modules/<nama>/components/`.
+
 ```
 frontend/
 ├── BUILD.md
+├── DESIGN-REFERENCES.md
 ├── package.json
 ├── next.config.ts
 ├── tailwind.config.ts
 ├── tsconfig.json
 ├── .env.example
-├── .env.local                        ← TIDAK di-commit
+├── .env.local                              ← TIDAK di-commit
 ├── public/
-│   └── tredie-logo.svg               ← wordmark SVG
-└── app/
-    ├── layout.tsx                    ← Root layout: font + Providers
-    ├── page.tsx                      ← Homepage: discovery feed
-    ├── providers.tsx                 ← Privy + Toast context
-    ├── globals.css                   ← Tailwind base + custom vars
-    ├── markets/
-    │   └── [identifier]/
-    │       └── page.tsx              ← Market detail page
-    ├── portfolio/
-    │   └── page.tsx                  ← Holdings + PnL
-    └── my-trends/
-        └── page.tsx                  ← Markets created by user
-components/
-├── header/
-│   ├── Header.tsx                    ← Sticky header wrapper (height 56px)
-│   ├── Logo.tsx                      ← "Tredie" wordmark
-│   ├── SearchBar.tsx                 ← Search + URL detection + dropdown
-│   ├── ConnectButton.tsx             ← Login trigger / connected indicator
-│   └── PortfolioButton.tsx           ← Ghost button → PortfolioDropdown
-├── discovery/
-│   ├── DiscoveryTabs.tsx             ← Topics | Tokens tabs
-│   ├── TokenSubTabs.tsx              ← Trending | on X | on TG
-│   ├── AssetClassFilter.tsx          ← Pill filter: All Crypto Equity Commodity FX
-│   ├── MarketGrid.tsx                ← 4-col grid + skeleton loading
-│   ├── MarketCard.tsx                ← Standard ticker card
-│   └── CACard.tsx                    ← Contract address card variant
-├── market/
-│   ├── MarketHeader.tsx              ← Icon + name + price + stats row
-│   ├── RatchetStatusBar.tsx          ← Ratchet progress bar + label
-│   ├── DualChart.tsx                 ← Recharts: price + mindshare overlay
-│   ├── ChartTimeRangeTabs.tsx        ← 1H | 6H | 24H | 1W | ALL
-│   ├── TradePanel.tsx                ← Buy/sell form + Privy signing
-│   ├── HoldersTable.tsx
-│   ├── TradesTable.tsx
-│   └── MarketContextCard.tsx         ← Link preview (Path 3 markets)
-├── wallet/
-│   ├── ConnectModal.tsx              ← Email + Google + Phantom + Solflare
-│   ├── DepositModal.tsx              ← QR code + copy address
-│   └── PortfolioDropdown.tsx         ← Balance dropdown from header
-└── ui/
-    ├── Button.tsx
-    ├── Card.tsx
-    ├── Tabs.tsx
-    ├── Badge.tsx
-    ├── Toast.tsx
-    ├── Skeleton.tsx
-    └── Spinner.tsx
-lib/
-├── api.ts                            ← Typed fetch wrappers untuk backend
-├── solana.ts                         ← Connection + tx decode/send
-├── privy.ts                          ← Wallet helpers
-├── format.ts                         ← Number/date formatters
-└── platform-detect.ts                ← Detect URL platform (twitter/tiktok/etc)
-store/
-├── markets.ts                        ← Market list + active market state
-├── wallet.ts                         ← Wallet + balance + portfolio
-└── trade.ts                          ← Active trade form state
+│   └── tredie-logo.svg
+│
+├── app/                                    ← ROUTING & LAYOUT ONLY
+│   ├── globals.css                         ← Tailwind base + custom vars
+│   ├── layout.tsx                          ← Root layout: font + Providers
+│   ├── page.tsx                            ← export { default } from '@/modules/landing/Landing'
+│   ├── markets/
+│   │   └── [identifier]/
+│   │       └── page.tsx                    ← export { default } from '@/modules/market/Market'
+│   ├── portfolio/
+│   │   └── page.tsx                        ← export { default } from '@/modules/portfolio/Portfolio'
+│   └── my-trends/
+│       └── page.tsx                        ← export { default } from '@/modules/my-trends/MyTrends'
+│
+└── src/                                    ← SEMUA SOURCE CODE
+    │
+    ├── lib/                                ← Integrasi eksternal & services
+    │   ├── api.ts                          ← Typed fetch wrappers (ky)
+    │   ├── solana.ts                       ← Connection + tx decode/send
+    │   └── privy.ts                        ← Wallet helpers
+    │
+    ├── components/                         ← Shared components (dipakai ≥2 module)
+    │   ├── ui/                             ← Primitives: zero business logic
+    │   │   ├── Button.tsx
+    │   │   ├── Card.tsx
+    │   │   ├── Tabs.tsx
+    │   │   ├── Badge.tsx
+    │   │   ├── Toast.tsx
+    │   │   ├── Skeleton.tsx
+    │   │   └── Spinner.tsx
+    │   ├── layout/                         ← Global layout pieces (header, nav)
+    │   │   ├── Header.tsx                  ← Sticky header wrapper (56px)
+    │   │   ├── Logo.tsx                    ← "Tredie" wordmark
+    │   │   ├── SearchBar.tsx               ← Search + URL detection + dropdown
+    │   │   ├── ConnectButton.tsx           ← Login trigger / connected indicator
+    │   │   └── PortfolioButton.tsx         ← Ghost button → PortfolioDropdown
+    │   └── element/                        ← Composite shared (punya logic, dipakai ≥2 module)
+    │       ├── MarketCard.tsx              ← Dipakai di landing + search + portfolio
+    │       ├── CACard.tsx                  ← Contract address card variant
+    │       └── PriceDisplay.tsx            ← Formatted price + delta (dipakai di mana-mana)
+    │
+    ├── modules/                            ← Logic per page / feature
+    │   ├── landing/                        ← Homepage (discovery feed)
+    │   │   ├── Landing.tsx                 ← Orchestrator, di-import app/page.tsx
+    │   │   └── components/                 ← Hanya dipakai di landing
+    │   │       ├── DiscoveryTabs.tsx       ← Topics | Tokens tabs
+    │   │       ├── TokenSubTabs.tsx        ← Trending | on X | on TG
+    │   │       ├── AssetClassFilter.tsx    ← Pill filter: All Crypto Equity Commodity FX
+    │   │       └── MarketGrid.tsx          ← 4-col grid + skeleton loading
+    │   ├── market/                         ← Market detail page
+    │   │   ├── Market.tsx
+    │   │   └── components/
+    │   │       ├── MarketHeader.tsx        ← Icon + name + price + stats row
+    │   │       ├── RatchetStatusBar.tsx    ← Ratchet progress bar + label
+    │   │       ├── DualChart.tsx           ← Recharts: price + mindshare overlay
+    │   │       ├── ChartTimeRangeTabs.tsx  ← 1H | 6H | 24H | 1W | ALL
+    │   │       ├── TradePanel.tsx          ← Buy/sell form + Privy signing
+    │   │       ├── HoldersTable.tsx
+    │   │       ├── TradesTable.tsx
+    │   │       └── MarketContextCard.tsx   ← Link preview (Path 3 markets)
+    │   ├── portfolio/                      ← Holdings + PnL
+    │   │   ├── Portfolio.tsx
+    │   │   └── components/
+    │   ├── my-trends/                      ← Markets created by user
+    │   │   ├── MyTrends.tsx
+    │   │   └── components/
+    │   └── wallet/                         ← Wallet modals (triggered dari header)
+    │       ├── ConnectModal.tsx            ← Email + Google + Phantom + Solflare
+    │       ├── DepositModal.tsx            ← QR code + copy address
+    │       └── PortfolioDropdown.tsx       ← Balance dropdown from header
+    │
+    ├── store/                              ← Zustand global stores
+    │   ├── markets.ts                      ← Market list + active market state
+    │   ├── wallet.ts                       ← Wallet + balance + portfolio
+    │   └── trade.ts                        ← Active trade form state
+    │
+    ├── utils/                              ← Pure functions: no React, no side effects
+    │   ├── format.ts                       ← Number/date formatters
+    │   └── platform-detect.ts             ← Detect URL platform (twitter/tiktok/etc)
+    │
+    └── providers/                          ← React Context providers
+        ├── index.tsx                       ← Compose semua providers jadi satu wrapper
+        ├── WalletProvider.tsx              ← Privy + Solana wallet context
+        └── ToastProvider.tsx              ← Toast context
 ```
+
+### Import conventions
+
+```ts
+// Dari app/ → src/
+import Landing from '@/modules/landing/Landing'
+import { Header } from '@/components/layout/Header'
+import { Button } from '@/components/ui/Button'
+import { MarketCard } from '@/components/element/MarketCard'
+import { useMarkets } from '@/store/markets'
+import { formatPrice } from '@/utils/format'
+import { Providers } from '@/providers'
+
+// app/page.tsx — cukup ini saja
+export { default } from '@/modules/landing/Landing'
+
+// Local component di dalam module (relatif path OK)
+import { DiscoveryTabs } from './components/DiscoveryTabs'
+```
+
+### Aturan boundary
+
+| Folder | Boleh import dari | TIDAK boleh import dari |
+|---|---|---|
+| `components/ui/` | — (zero deps) | semua kecuali React |
+| `components/layout/` | `ui/`, `store/`, `providers/` | `modules/` |
+| `components/element/` | `ui/`, `store/`, `lib/` | `modules/` |
+| `modules/*/` | semua `src/` | module lain (avoid cross-module import) |
+| `store/` | `lib/`, `utils/` | `components/`, `modules/` |
+| `providers/` | `lib/`, `store/` | `modules/`, `components/` |
+| `utils/` | — | semua (pure functions) |
 
 ---
 
@@ -427,7 +492,9 @@ body {
 
 ## 8. Providers & Layout
 
-### `app/providers.tsx`
+### `src/providers/index.tsx`
+
+Semua provider di-compose di sini. `app/layout.tsx` hanya import satu `<Providers>`.
 
 ```tsx
 'use client';
@@ -464,14 +531,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
 }
 ```
 
+> Kalau nanti butuh context tambahan (mis. `ThemeProvider`, `ToastProvider`),
+> wrap di dalam file ini saja — `app/layout.tsx` tidak perlu disentuh.
+
 ### `app/layout.tsx`
 
 ```tsx
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import localFont from 'next/font/local';
-import { Providers } from './providers';
-import { Header } from '@/components/header/Header';
+import { Providers } from '@/providers';
+import { Header } from '@/components/layout/Header';
 import './globals.css';
 
 const inter = Inter({
