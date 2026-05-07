@@ -15,7 +15,7 @@ pub struct Market {
     pub identifier: [u8; 32],
     /// Actual byte length of identifier (1..=32).
     pub identifier_len: u8,
-    /// 0=crypto 1=dex 2=equity 3=commodity 4=fx 5=CA
+    /// 0=crypto 1=dex 2=equity 3=commodity 4=fx 5=CA 6=trend
     pub asset_class: u8,
     pub base_virtual_sol: u64,
     pub virtual_token_supply: u64,
