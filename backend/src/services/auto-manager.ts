@@ -14,11 +14,25 @@ import { log } from "../utils/log";
  * - Trend (6) gak punya price chart, jadi conditions LLM-only:
  *     "Has the keyword X had a viral mention spike in the last 1h?"
  */
+/**
+ * Recover the bare ticker from an attention-token identifier so Elfa Auto's
+ * TA/price modules (which only know real tickers like BTC / NVDA) can look
+ * it up. Mirror of stripAttentionPrefix in oracle-updater.
+ */
+function stripAttentionPrefix(identifier: string, assetClass: number): string {
+  if (assetClass < 2 && identifier.startsWith("a") && identifier.length > 1) {
+    return identifier.slice(1);
+  }
+  if (assetClass >= 2 && assetClass <= 4 && identifier.startsWith("ax")) {
+    return identifier.slice(2);
+  }
+  return identifier;
+}
+
 function buildConditions(market: db.MarketRow): object | null {
   if (market.asset_class === 6) {
     // Prefer display_name (full readable phrase) over the camelCase slug
     // for keyword search — Elfa LLM works better with natural language.
-    // Falls back to splitting the identifier if display_name missing.
     const keyword =
       market.display_name ??
       elfaClient.trendIdToKeyword(market.identifier) ??
@@ -43,7 +57,12 @@ function buildConditions(market: db.MarketRow): object | null {
     };
   }
 
-  // Tradeable & CA: TA/price + LLM hybrid
+  // Tradeable assets: strip attention prefix so Elfa TA/price modules can
+  // resolve the symbol. Elfa knows "BTC" / "NVDA", not our "aBTC" / "axNVDA".
+  const baseTicker = stripAttentionPrefix(market.identifier, market.asset_class);
+  // Use display_name in the LLM query for richer context when available.
+  const llmLabel = market.display_name ?? baseTicker;
+
   return {
     OR: [
       {
@@ -51,14 +70,14 @@ function buildConditions(market: db.MarketRow): object | null {
           {
             source: "ta",
             method: "rsi",
-            args: { symbol: market.identifier, timeframe: "1h", period: 14 },
+            args: { symbol: baseTicker, timeframe: "1h", period: 14 },
             operator: "crosses_above",
             value: 70,
           },
           {
             source: "price",
             method: "change",
-            args: { symbol: market.identifier, period: "1h" },
+            args: { symbol: baseTicker, period: "1h" },
             operator: ">",
             value: 0.05,
           },
@@ -68,7 +87,7 @@ function buildConditions(market: db.MarketRow): object | null {
         source: "llm",
         method: "athena_condition",
         args: {
-          query: `Has ${market.identifier} had a viral mention or smart-account buy call in the last 1h?`,
+          query: `Has ${llmLabel} (${baseTicker}) had a viral mention or smart-account buy call in the last 1h?`,
           period: "1h",
           speed: "fast",
         },
