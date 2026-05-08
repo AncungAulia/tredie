@@ -1,28 +1,17 @@
-import { create } from 'zustand';
-import { Market, mockMarkets, MarketCategory } from '@/lib/mock-data/markets';
+import { create } from "zustand";
 
-interface MarketState {
-  markets: Market[];
-  activeCategory: MarketCategory;
+export type TokenCategory = "All" | "Trending" | "On X";
+
+interface MarketUIState {
+  activeTokenCategory: TokenCategory;
   searchQuery: string;
-  setCategory: (category: MarketCategory) => void;
+  setTokenCategory: (category: TokenCategory) => void;
   setSearchQuery: (query: string) => void;
-  getFilteredMarkets: () => Market[];
 }
 
-export const useMarketStore = create<MarketState>((set, get) => ({
-  markets: mockMarkets,
-  activeCategory: "All",
+export const useMarketStore = create<MarketUIState>((set) => ({
+  activeTokenCategory: "All",
   searchQuery: "",
-  setCategory: (category) => set({ activeCategory: category }),
+  setTokenCategory: (category) => set({ activeTokenCategory: category }),
   setSearchQuery: (query) => set({ searchQuery: query }),
-  getFilteredMarkets: () => {
-    const { markets, activeCategory, searchQuery } = get();
-    return markets.filter((m) => {
-      const matchesCategory = activeCategory === "All" || m.category === activeCategory;
-      const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            m.ticker.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
-  }
 }));
