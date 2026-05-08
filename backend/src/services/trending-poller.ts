@@ -40,13 +40,18 @@ interface CandidateSummary {
 
 /**
  * Sanity-check + normalize the AI-decided identifier before we use it as
- * an on-chain seed. Returns null if invalid (caller falls back to skip).
+ * an on-chain seed. Returns null if invalid.
  *
- * On-chain caps that drive these rules:
- * - PDA seed limit: 32 UTF-8 bytes
- * - MPL Token Metadata symbol cap: 10 bytes (the SC derives symbol = identifier
- *   UTF-8 verbatim, so identifier itself must fit MPL's cap for asset classes
- *   that go through the MPL CPI path).
+ * Convention (all asset classes capped at 10 bytes — MPL symbol limit):
+ *   class 0/1 (crypto/dex):      "a" + UPPERCASE         e.g. aBTC, aETH, aPEPE
+ *   class 2/3/4 (equity/cmd/fx): "ax" + UPPERCASE        e.g. axNVDA, axXAU, axDXY
+ *   class 5 (Solana CA):         (currently unspawnable, base58 too long)
+ *   class 6 (trend):             camelCase, no prefix    e.g. cnbadd, labubu
+ *
+ * The "a" / "ax" prefix marks an attention-token. The on-chain SC derives
+ * the SPL symbol verbatim from this identifier, so wallets/explorers will
+ * show e.g. "aBTC" — making it visually obvious this is the attention
+ * version, not the underlying asset.
  */
 const MPL_SYMBOL_CAP_BYTES = 10;
 
@@ -56,35 +61,29 @@ function validateIdentifier(
 ): string | null {
   if (!identifier) return null;
   const trimmed = identifier.trim();
-  if (Buffer.byteLength(trimmed, "utf8") > 32) return null;
+  if (Buffer.byteLength(trimmed, "utf8") > MPL_SYMBOL_CAP_BYTES) return null;
 
   switch (assetClass) {
     case 0:
     case 1:
-      // crypto/dex tickers — uppercase short code, capped to MPL symbol limit
-      if (!/^[A-Z0-9]{2,10}$/.test(trimmed)) return null;
+      // a + uppercase ticker. Total 3-10 bytes (a + 2-9 char ticker).
+      if (!/^a[A-Z0-9]{2,9}$/.test(trimmed)) return null;
       return trimmed;
     case 2:
     case 3:
-    case 4: {
-      if (!trimmed.startsWith("xyz:")) return null;
-      const upper = trimmed.toUpperCase().replace(/^XYZ:/, "xyz:");
-      if (Buffer.byteLength(upper, "utf8") > MPL_SYMBOL_CAP_BYTES) return null;
-      return upper;
-    }
+    case 4:
+      // ax + uppercase ticker. Total 4-10 bytes (ax + 2-8 char ticker).
+      if (!/^ax[A-Z0-9]{2,8}$/.test(trimmed)) return null;
+      return trimmed;
     case 5:
-      // Solana CA: base58 32–44 chars. All exceed MPL's 10-byte cap so the
-      // MPL CPI in create_market will fail until the SC patches symbol
-      // truncation. Caller should not send CAs here for now.
+      // Solana CA: base58 32-44 chars. Exceeds MPL cap, blocked at collect
+      // layer. This branch only runs if caller bypassed the pre-filter.
       if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return null;
       return trimmed;
-    case 6: {
-      if (!trimmed.startsWith("t:")) return null;
-      const slug = trimmed.slice("t:".length);
-      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
-      if (Buffer.byteLength(trimmed, "utf8") > MPL_SYMBOL_CAP_BYTES) return null;
+    case 6:
+      // trend: camelCase, no prefix. Start lowercase letter, 2-10 chars.
+      if (!/^[a-z][a-zA-Z0-9]{1,9}$/.test(trimmed)) return null;
       return trimmed;
-    }
     default:
       return null;
   }

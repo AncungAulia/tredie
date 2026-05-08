@@ -63,19 +63,21 @@ export const openApiSpec = {
         tags: ["markets"],
         summary: "List markets",
         parameters: [
+          { name: "type", in: "query", schema: { type: "string", enum: ["token", "topic"] }, description: "High-level group for FE tabs. token=tradable assets (classes 0-4), topic=trends (class 6). assetClass takes precedence if both given." },
           { name: "assetClass", in: "query", schema: { type: "integer", minimum: 0, maximum: 6 }, description: "0=crypto 1=dex 2=equity 3=commodity 4=fx 5=CA 6=trend" },
           { name: "limit", in: "query", schema: { type: "integer", default: 50, maximum: 100 } },
           { name: "sortBy", in: "query", schema: { type: "string", enum: ["mindshare", "volume"], default: "mindshare" } },
           { name: "order", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
+          { name: "sparkline", in: "query", schema: { type: "boolean", default: true }, description: "Set false to skip the 24h sparkline aggregate (faster)." },
         ],
-        responses: { "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/MarketsList" } } } } },
+        responses: { "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/MarketsList" } } } }, "400": { description: "Invalid type value" } },
       },
     },
     "/api/v1/markets/{identifier}": {
       get: {
         tags: ["markets"],
         summary: "Market detail + mindshare history + recent trades",
-        parameters: [{ name: "identifier", in: "path", required: true, schema: { type: "string" }, example: "BTC" }],
+        parameters: [{ name: "identifier", in: "path", required: true, schema: { type: "string" }, example: "aBTC" }],
         responses: { "200": { description: "OK" }, "404": { description: "Not found" } },
       },
     },
@@ -327,7 +329,7 @@ export const openApiSpec = {
       Market: {
         type: "object",
         properties: {
-          identifier: { type: "string", example: "t:cnbadd" },
+          identifier: { type: "string", example: "aBTC" },
           pda: { type: "string" },
           mint: { type: "string" },
           asset_class: { type: "integer", minimum: 0, maximum: 6 },
@@ -380,7 +382,7 @@ export const openApiSpec = {
         type: "object",
         required: ["identifier"],
         properties: {
-          identifier: { type: "string", maxLength: 32, example: "t:trend123" },
+          identifier: { type: "string", maxLength: 10, example: "aBTC" },
           assetClass: { type: "integer", minimum: 0, maximum: 6, default: 0 },
           source: { type: "string", enum: ["user_search", "user_link_paste", "auto_spawn"], default: "user_search" },
           sourceMetadata: { type: "object", additionalProperties: true },

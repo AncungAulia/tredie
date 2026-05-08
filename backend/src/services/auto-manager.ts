@@ -16,7 +16,13 @@ import { log } from "../utils/log";
  */
 function buildConditions(market: db.MarketRow): object | null {
   if (market.asset_class === 6) {
-    const keyword = elfaClient.trendIdToKeyword(market.identifier);
+    // Prefer display_name (full readable phrase) over the camelCase slug
+    // for keyword search — Elfa LLM works better with natural language.
+    // Falls back to splitting the identifier if display_name missing.
+    const keyword =
+      market.display_name ??
+      elfaClient.trendIdToKeyword(market.identifier) ??
+      market.identifier;
     if (!keyword) return null;
     return {
       AND: [

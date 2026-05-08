@@ -127,16 +127,25 @@ Use `/health` as the single check on app boot. If `checks.db` or `checks.solana`
 ### 2.2 List markets
 
 ```http
-GET /markets?assetClass=&limit=&sortBy=&order=&sparkline=
+GET /markets?type=&assetClass=&limit=&sortBy=&order=&sparkline=
 ```
 
 | Query | Type | Default | Notes |
 |-------|------|---------|-------|
-| `assetClass` | `0..6` | (none) | 0=crypto 1=dex 2=equity 3=commodity 4=fx 5=CA 6=trend |
+| `type` | `token \| topic` | (none) | **High-level group for FE tabs.** `token` = tradable assets (asset_class 0-4); `topic` = trends (asset_class 6). Returns 400 on any other value. |
+| `assetClass` | `0..6` | (none) | Fine-grained class filter. Takes precedence over `type` if both given. |
 | `limit` | int | 50 | max 100 |
 | `sortBy` | `mindshare \| volume` | `mindshare` | `volume` = `real_sol_reserves` desc |
 | `order` | `asc \| desc` | `desc` |  |
 | `sparkline` | `true \| false` | `true` | Set `false` to skip the 24h sparkline aggregate (faster) |
+
+**Tab filtering pattern**:
+```ts
+// Tokens tab
+const tokens = await api.get('markets', { searchParams: { type: 'token' } }).json();
+// Topics tab
+const topics = await api.get('markets', { searchParams: { type: 'topic' } }).json();
+```
 
 **Response 200**:
 ```ts
@@ -538,13 +547,21 @@ POST /markets/prepare-create
 Content-Type: application/json
 ```
 
-Used when user pastes an unknown link or types a ticker not yet in the system. Backend will spawn the market on-chain if it doesn't exist.
+Used when user types a ticker not in the system or pastes a link the backend resolves to a brand-new market. Backend spawns the on-chain Market account + SPL mint + Metaplex metadata in one tx.
 
 ```ts
 Request: {
-  identifier: string,            // 1..32 chars
+  identifier: string,            // 1..10 chars; must match the prefix
+                                 // convention for the chosen assetClass
+                                 // (see §6 Identifier format)
   assetClass?: 0..6,             // default 0 (crypto)
   source?: 'user_search' | 'user_link_paste' | 'auto_spawn',
+  displayName?: string,          // optional, max 64 chars. Used as the
+                                 // on-chain Metaplex `name` field (the
+                                 // human-readable label wallets show
+                                 // alongside the symbol).
+  imageUrl?: string,             // optional, must be a valid URL
+  sourceUrl?: string,            // optional, valid URL
   sourceMetadata?: Record<string, unknown>
 }
 
@@ -554,7 +571,20 @@ Response 200: {
 }
 ```
 
-> **Note**: bypasses AI gating by design — user-initiated intent is treated as explicit. Auto-spawn from Elfa polling DOES go through AI gating; that's a different code path.
+**Recommended pattern** for FE create-market form:
+```ts
+await api.post('markets/prepare-create', {
+  json: {
+    identifier: 'aBTC',
+    assetClass: 0,
+    displayName: 'Bitcoin',     // wallet shows "aBTC · Bitcoin"
+    imageUrl: 'https://.../btc.png',  // optional, surfaces in market list
+    source: 'user_search',
+  }
+});
+```
+
+> **Bypasses AI gating by design** — user-initiated intent is explicit. Auto-spawn from Elfa polling goes through the AI gate (`/admin/poll-trending` flow).
 
 ### 2.11 Search
 
@@ -1072,19 +1102,25 @@ const sol = Number(reserves) / 1e9;                  // ok up to ~9M SOL precisi
 
 Don't use `+market.real_sol_reserves` or `Number(...)` directly on large bigints — precision loss past 2^53.
 
-### Identifier format
+### Identifier format — Attention-token convention
 
-| Asset class | Identifier format | Example | On-chain seed bytes |
-|-------------|-------------------|---------|---------------------|
-| 0 crypto | uppercase ticker, ≤10 bytes | `BTC`, `PEPE` | 3 / 4 |
-| 1 dex | uppercase | `JUP-PERP` (rare) | varies |
-| 2 equity | `xyz:<TICKER>`, ≤10 bytes | `xyz:NVDA`, `xyz:SPX` | 8 / 7 |
-| 3 commodity | `xyz:<CODE>` | `xyz:XAU`, `xyz:CL` | 7 / 6 |
-| 4 fx | `xyz:<PAIR>` | `xyz:DXY`, `xyz:EURUSD` | 7 / 9 |
-| 5 CA | base58 32–44 chars | `7vfCXTUXx5...` | 32–44 (CURRENTLY UNSPAWNABLE — see §9.3) |
-| 6 trend | `t:<slug>`, ≤10 bytes total | `t:cnbadd`, `t:labubu` | 8 / 8 |
+The `a` / `ax` prefix marks every market identifier as an **attention token**. The on-chain SC derives the SPL token symbol verbatim from this identifier, so wallets and explorers display `aBTC`, `axNVDA`, `cnbadd` directly — making it visually obvious users are trading mindshare, not the underlying.
 
-**Legacy `trend:<slug>`** identifiers (≤32 bytes) exist in the DB from before the MPL CPI upgrade. Treat them as read-only — backend's `trendIdToKeyword` handles both prefixes.
+| Asset class | Format | Example | Bytes |
+|-------------|--------|---------|------:|
+| 0 crypto | `a` + UPPERCASE | `aBTC`, `aETH`, `aSOL`, `aPEPE`, `aJUP` | 4–10 |
+| 1 dex | `a` + UPPERCASE | `aJUPPERP` (rare) | 4–10 |
+| 2 equity | `ax` + UPPERCASE | `axNVDA`, `axTSLA`, `axSPX`, `axAAPL` | 4–10 |
+| 3 commodity | `ax` + UPPERCASE | `axXAU`, `axCL`, `axNG` | 4–10 |
+| 4 fx | `ax` + UPPERCASE | `axDXY`, `axEURUSD` | 4–10 |
+| 5 CA | base58 32–44 chars | `7vfCXTUXx5...` | 32–44 (UNSPAWNABLE — see §9.1) |
+| 6 trend | camelCase, NO prefix | `cnbadd`, `labubu`, `anthSpacex` | 2–10 |
+
+All identifiers ≤10 bytes (Metaplex symbol cap).
+
+**Visual disambiguation**: trend identifiers start lowercase + lowercase second char (`cnbadd`); token-class identifiers start `a` + UPPERCASE (`aBTC`) or `ax` + UPPERCASE (`axNVDA`). Frontend can use `asset_class` (more reliable) or this prefix pattern as a fallback.
+
+**Legacy markets**: any old identifiers (`BTC`, `xyz:NVDA`, `t:cnbadd`, `trend:foo`) from earlier convention versions become unreachable after the DB truncate. Old on-chain Market accounts remain on-chain as orphans (still tradeable directly via raw RPC, but not surfaced through this backend).
 
 ### URL encoding
 

@@ -44,21 +44,25 @@ VERDICTS:
 ASSET CLASS (use this exact mapping):
 - 0 = crypto (major tickers like BTC, ETH, SOL)
 - 1 = dex / pool token
-- 2 = equity (NVDA, TSLA — prefix raw symbol with "xyz:" for non-crypto)
-- 3 = commodity
-- 4 = fx
+- 2 = equity (NVDA, TSLA, SPX, AAPL)
+- 3 = commodity (XAU, CL, ZW, NG)
+- 4 = fx (DXY, EURUSD)
 - 5 = solana contract address (44-char base58) — CURRENTLY UNSPAWNABLE, prefer skip or merge
-- 6 = trend / cultural / narrative (everything else: memes, movements, aesthetics, events)
+- 6 = trend / cultural / narrative (memes, movements, aesthetics, events)
 
-IDENTIFIER FORMAT — HARD CAP 10 BYTES TOTAL because the on-chain program derives the SPL token symbol verbatim from this identifier and Metaplex caps symbols at 10 bytes:
-- Crypto/equity tickers: uppercase, 2–10 chars ("BTC", "ETH", "SOL", "PEPE")
-- Equity/commodity/fx with "xyz:" prefix: total ≤10 bytes ("xyz:NVDA", "xyz:SPX", "xyz:XAU")
-- Trend: "t:<slug>" — slug is lowercase kebab-case, total ≤10 bytes (so slug part max 8 chars). Pick the SHORTEST evocative tag, not a sentence. Examples:
-    "Anthropic partners with SpaceX..." → "t:anthspx"
-    "Chinese Baddies aesthetic"          → "t:cnbadd" or "t:baddies"
-    "Massie endorses Bitcoin"            → "t:massie"
-    "XRPL interbank settlement"          → "t:xrpl"
-  When in doubt, use 1-2 highly distinctive lowercase letter sequences. The full readable name goes in display_name, not identifier.
+IDENTIFIER FORMAT — HARD CAP 10 BYTES TOTAL. The on-chain program derives the SPL token symbol verbatim from this, and Metaplex caps symbols at 10 bytes. The lowercase "a" / "ax" prefixes mark this as an ATTENTION TOKEN — what we sell here is mindshare, not the underlying. So aBTC means "attention BTC", axNVDA means "attention Nvidia equity", etc.
+
+  - Class 0/1 (crypto, dex): "a" + UPPERCASE TICKER (2-9 chars). Examples: aBTC, aETH, aSOL, aPEPE, aWIF, aBONK, aJUP
+  - Class 2/3/4 (equity, commodity, fx): "ax" + UPPERCASE TICKER (2-8 chars). Examples: axNVDA, axSPX, axTSLA, axAAPL, axXAU, axDXY, axEURUSD
+  - Class 6 (trend): camelCase, NO prefix, 2-10 chars total. Pick the SHORTEST evocative tag. Examples:
+      "Anthropic partners with SpaceX..." → "anthSpacex"
+      "Chinese Baddies aesthetic"          → "cnbadd" or "baddies"
+      "Massie endorses Bitcoin"            → "massieBtc"
+      "XRPL interbank settlement"          → "xrplBank"
+      "Bitcoin halving narrative"          → "btcHalv"
+    Use lowercase first letter, then either lowercase or camelCase remainder. NO colons, NO dashes, NO underscores — just letters and digits.
+
+DISPLAY_NAME (separate field): full human-readable label, Title Case, e.g. "Bitcoin", "Nvidia", "Chinese Baddies Aesthetic", "Anthropic SpaceX Partnership". The display_name is what users SEE; the identifier is just the on-chain id.
 
 IF YOU CANNOT FIT a meaningful identifier in 10 bytes, return verdict="skip" with reason="identifier_too_long". Do not return spawn with an over-cap identifier — the validator will reject and the candidate will be dropped anyway.
 

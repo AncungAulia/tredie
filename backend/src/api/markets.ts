@@ -33,8 +33,15 @@ function curveStateOf(m: db.MarketRow): MarketCurveState {
   };
 }
 
+// Higher-level grouping for FE tabs. "token" covers all tradable asset
+// classes (crypto/dex/equity/commodity/fx); "topic" is trend-class only.
+// CA (class 5) is currently unspawnable so excluded from "token" too.
+const TOKEN_CLASSES = [0, 1, 2, 3, 4];
+const TOPIC_CLASSES = [6];
+
 marketsRoutes.get("/", async (c) => {
   const assetClass = c.req.query("assetClass");
+  const type = c.req.query("type"); // "token" | "topic"
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
   const sortBy = c.req.query("sortBy") ?? "mindshare";
   const order = c.req.query("order") === "asc" ? "ASC" : "DESC";
@@ -44,10 +51,25 @@ marketsRoutes.get("/", async (c) => {
     sortBy === "volume" ? sql`real_sol_reserves` : sql`current_mindshare_bps`;
   const dir = order === "ASC" ? sql`ASC` : sql`DESC`;
 
+  // Resolve asset_class filter. assetClass takes precedence if both given.
+  let classes: number[] | null = null;
+  if (assetClass !== undefined && assetClass !== "") {
+    classes = [Number(assetClass)];
+  } else if (type === "token") {
+    classes = TOKEN_CLASSES;
+  } else if (type === "topic") {
+    classes = TOPIC_CLASSES;
+  } else if (type !== undefined && type !== "") {
+    return c.json(
+      { error: `type must be "token" or "topic" (got "${type}")` },
+      400,
+    );
+  }
+
   const rows =
-    assetClass !== undefined && assetClass !== ""
+    classes !== null
       ? await sql<db.MarketRow[]>`
-          SELECT * FROM markets WHERE asset_class = ${Number(assetClass)}
+          SELECT * FROM markets WHERE asset_class = ANY(${classes as any})
           ORDER BY ${sortCol} ${dir} LIMIT ${limit}
         `
       : await sql<db.MarketRow[]>`
@@ -56,9 +78,9 @@ marketsRoutes.get("/", async (c) => {
         `;
 
   const [{ count }] =
-    assetClass !== undefined && assetClass !== ""
+    classes !== null
       ? await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ${Number(assetClass)}
+          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any})
         `
       : await sql<{ count: bigint }[]>`
           SELECT COUNT(*)::bigint as count FROM markets
@@ -504,11 +526,16 @@ marketsRoutes.post("/prepare-trade", async (c) => {
 });
 
 const prepareCreateSchema = z.object({
-  identifier: z.string().min(1).max(32),
+  identifier: z.string().min(1).max(10),
   source: z
     .enum(["user_search", "user_link_paste", "auto_spawn"])
     .default("user_search"),
   assetClass: z.number().int().min(0).max(6).default(0),
+  // displayName flows into the on-chain Metaplex `name` field — show users
+  // a readable label like "Bitcoin" instead of the raw "aBTC" identifier.
+  displayName: z.string().min(1).max(64).optional(),
+  imageUrl: z.string().url().optional(),
+  sourceUrl: z.string().url().optional(),
   sourceMetadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -525,6 +552,9 @@ marketsRoutes.post("/prepare-create", async (c) => {
       identifier: body.data.identifier,
       assetClass: body.data.assetClass,
       source: body.data.source,
+      displayName: body.data.displayName ?? null,
+      imageUrl: body.data.imageUrl ?? null,
+      sourceUrl: body.data.sourceUrl ?? null,
       sourceMetadata: body.data.sourceMetadata ?? null,
     });
     return c.json(jsonSafe({ market, alreadyExists: false }));

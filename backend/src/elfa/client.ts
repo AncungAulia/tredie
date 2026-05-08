@@ -187,85 +187,97 @@ export async function getKeywordMentions(
 }
 
 // ── Trend identifier normalization ───────────────────────────────────────
-// On-chain identifier is [u8; 32]. Trend markets use prefix `t:` + short slug.
-// Total length capped at 10 BYTES so the SC's identifier→symbol derivation
-// fits Metaplex's symbol cap (10 bytes) without needing SC changes.
-// Free-form phrase ("Chinese Baddies", "AI Agents") → slug, then prefix.
+// Trend identifiers are pure camelCase, no prefix. The lowercase first
+// letter visually distinguishes trends from token-class identifiers
+// ("aBTC", "axNVDA") which start with "a"+UPPERCASE.
 //
-// LEGACY_TREND_PREFIX (`trend:`) is still recognized for backward compatibility
-// with markets created before the MPL CPI was added — those markets stay
-// functional (no metadata account but otherwise normal).
+// Total length capped at 10 BYTES — the on-chain SC derives the SPL symbol
+// verbatim from the identifier and Metaplex caps symbols at 10 bytes.
+//
+// Legacy formats still recognized by trendIdToKeyword for any markets
+// spawned before this convention change:
+//   - "trend:foo" (pre-MPL era)
+//   - "t:foo"     (post-MPL, pre-attention-prefix era)
 
-const TREND_PREFIX = "t:";
-const LEGACY_TREND_PREFIX = "trend:";
+const LEGACY_TREND_PREFIX_OLD = "trend:";
+const LEGACY_TREND_PREFIX = "t:";
 const MAX_IDENTIFIER_BYTES = 10;
-const MAX_LEGACY_IDENTIFIER_BYTES = 32;
-
-/** Slugify a phrase: lowercase, strip non-alphanumeric, collapse to dash. */
-function slugify(phrase: string): string {
-  return phrase
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^\p{Letter}\p{Number}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-}
 
 /**
- * Normalize an arbitrary trend phrase to the on-chain identifier convention.
- * Truncates to fit 10 UTF-8 bytes total ("t:" + 8 char slug), snapping at the
- * last dash boundary when possible.
- *   "Chinese Baddies"                            → "t:chinese"
- *   "Anthropic partners with SpaceX to boost..." → "t:anthropi"
- *   "BTC ETF approval"                           → "t:btc-etf"
+ * Convert a free-form phrase to a camelCase slug fitting in 10 UTF-8 bytes.
+ *   "Chinese Baddies"                            → "chinese"
+ *   "Anthropic partners with SpaceX to boost..." → "anthSpacex"
+ *   "BTC ETF approval"                           → "btcEtf"
  *
  * Backend's AI judge (Gemini) usually outputs better slugs by picking the
  * meme's identity rather than a literal sentence prefix — this function is
- * the rule-based fallback when AI gating is disabled.
+ * the rule-based fallback when AI gating is disabled or rate-limited.
  */
 export function normalizeTrendId(phrase: string): string | null {
-  const slug = slugify(phrase);
-  if (!slug) return null;
+  const words = phrase
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return null;
 
-  const prefixBytes = Buffer.byteLength(TREND_PREFIX, "utf-8");
-  const maxSlugBytes = MAX_IDENTIFIER_BYTES - prefixBytes;
-
-  // Fits as-is
-  if (Buffer.byteLength(slug, "utf-8") <= maxSlugBytes) {
-    return `${TREND_PREFIX}${slug}`;
+  // Build camelCase: first word lowercase, subsequent words PascalCase.
+  let camel = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const w = words[i];
+    camel += w[0].toUpperCase() + w.slice(1);
+    if (Buffer.byteLength(camel, "utf-8") >= MAX_IDENTIFIER_BYTES) break;
   }
 
-  let truncated = slug.slice(0, maxSlugBytes);
-  while (Buffer.byteLength(truncated, "utf-8") > maxSlugBytes) {
-    truncated = truncated.slice(0, -1);
+  // Truncate to byte budget.
+  while (Buffer.byteLength(camel, "utf-8") > MAX_IDENTIFIER_BYTES) {
+    camel = camel.slice(0, -1);
   }
-  const lastDash = truncated.lastIndexOf("-");
-  // Snap to dash boundary only if it leaves a meaningful slug (>=3 chars).
-  if (lastDash >= 3) {
-    truncated = truncated.slice(0, lastDash);
-  }
-  truncated = truncated.replace(/-+$/, "");
-  if (!truncated) return null;
+  if (camel.length < 2) return null;
 
-  return `${TREND_PREFIX}${truncated}`;
+  // Must start with a lowercase letter (matches validateIdentifier regex).
+  if (!/^[a-z]/.test(camel)) return null;
+  return camel;
 }
 
-/** Reverse: extract the keyword from a trend identifier (handles legacy prefix). */
+/**
+ * Reverse: extract a search keyword from a trend identifier. Handles all
+ * three conventions (current camelCase, legacy "t:" prefix, legacy "trend:"
+ * prefix) so auto-manager queries keep working across migrations.
+ */
 export function trendIdToKeyword(identifier: string): string | null {
-  if (identifier.startsWith(TREND_PREFIX)) {
-    return identifier.slice(TREND_PREFIX.length).replace(/-/g, " ");
+  if (identifier.startsWith(LEGACY_TREND_PREFIX_OLD)) {
+    return identifier.slice(LEGACY_TREND_PREFIX_OLD.length).replace(/-/g, " ");
   }
   if (identifier.startsWith(LEGACY_TREND_PREFIX)) {
     return identifier.slice(LEGACY_TREND_PREFIX.length).replace(/-/g, " ");
   }
+  // Current camelCase: split on case transitions for a readable keyword.
+  if (/^[a-z]/.test(identifier)) {
+    return identifier.replace(/([A-Z])/g, " $1").toLowerCase().trim();
+  }
   return null;
 }
 
+/**
+ * Heuristic: a trend identifier starts with a lowercase letter (camelCase).
+ * Token-class identifiers ("aBTC", "axNVDA") all start with "a"+UPPERCASE,
+ * so the second-char case is the discriminator. Legacy "t:" / "trend:"
+ * prefixes are also recognized.
+ *
+ * Prefer reading `market.asset_class === 6` directly when available — this
+ * helper is for cases where you only have the identifier string.
+ */
 export function isTrendId(identifier: string): boolean {
-  return (
-    identifier.startsWith(TREND_PREFIX) ||
-    identifier.startsWith(LEGACY_TREND_PREFIX)
-  );
+  if (identifier.startsWith(LEGACY_TREND_PREFIX_OLD)) return true;
+  if (identifier.startsWith(LEGACY_TREND_PREFIX)) return true;
+  // current convention: lowercase first char + lowercase second char
+  // (rules out "aBTC" / "axNVDA" / etc).
+  if (identifier.length >= 2 && /^[a-z]/.test(identifier) && /^.[a-z0-9]/.test(identifier)) {
+    return true;
+  }
+  return false;
 }
 
 // ── Mindshare proxy helpers ──────────────────────────────────────────────
