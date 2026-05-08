@@ -6,6 +6,11 @@ import { marketSpawner } from "../services/market-spawner";
 import * as db from "../db";
 import { log } from "../utils/log";
 
+const jsonSafe = (v: unknown): unknown =>
+  JSON.parse(
+    JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
+  );
+
 export const adminRoutes = new Hono();
 
 // Force-trigger Elfa trending poll (narratives + tokens + CAs).
@@ -91,7 +96,13 @@ adminRoutes.get("/candidates", async (c) => {
 // Manual override: force-spawn a previously-skipped candidate. Useful when
 // the AI was too conservative or you want to demo a specific narrative.
 adminRoutes.post("/candidates/:id/approve", async (c) => {
-  const id = BigInt(c.req.param("id"));
+  const raw = c.req.param("id");
+  let id: bigint;
+  try {
+    id = BigInt(raw);
+  } catch {
+    return c.json({ error: "Invalid candidate id" }, 400);
+  }
   const cand = await db.getMarketCandidate(id);
   if (!cand) return c.json({ error: "candidate not found" }, 404);
   if (!cand.ai_identifier || cand.ai_asset_class === null) {
@@ -101,7 +112,7 @@ adminRoutes.post("/candidates/:id/approve", async (c) => {
   const existing = await db.getMarketByIdentifier(cand.ai_identifier);
   if (existing) {
     await db.updateCandidateVerdict(id, "manual_approve", existing.pda);
-    return c.json({ ok: true, alreadyExists: true, market: existing });
+    return c.json(jsonSafe({ ok: true, alreadyExists: true, market: existing }));
   }
 
   try {
@@ -112,7 +123,7 @@ adminRoutes.post("/candidates/:id/approve", async (c) => {
       displayName: cand.ai_display_name ?? null,
     });
     await db.updateCandidateVerdict(id, "manual_approve", market.pda);
-    return c.json({ ok: true, market });
+    return c.json(jsonSafe({ ok: true, market }));
   } catch (e: any) {
     log.error({ err: e, id: id.toString() }, "Manual approve spawn failed");
     return c.json({ ok: false, error: e.message }, 500);
@@ -122,7 +133,13 @@ adminRoutes.post("/candidates/:id/approve", async (c) => {
 // Manual reject: mark a pending/skip candidate as permanently rejected
 // (so dedup window keeps re-judging from being attempted).
 adminRoutes.post("/candidates/:id/reject", async (c) => {
-  const id = BigInt(c.req.param("id"));
+  const raw = c.req.param("id");
+  let id: bigint;
+  try {
+    id = BigInt(raw);
+  } catch {
+    return c.json({ error: "Invalid candidate id" }, 400);
+  }
   const cand = await db.getMarketCandidate(id);
   if (!cand) return c.json({ error: "candidate not found" }, 404);
   await db.updateCandidateVerdict(id, "manual_reject");

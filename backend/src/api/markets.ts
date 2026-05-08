@@ -438,7 +438,12 @@ marketsRoutes.post("/prepare-trade", async (c) => {
   const market = await db.getMarketByIdentifier(identifier);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
-  const traderPk = new PublicKey(trader);
+  let traderPk: PublicKey;
+  try {
+    traderPk = new PublicKey(trader);
+  } catch {
+    return c.json({ error: "Invalid trader pubkey" }, 400);
+  }
   const mintPk = new PublicKey(market.mint);
 
   // Re-estimate server-side and apply slippage so on-chain min_out enforces
