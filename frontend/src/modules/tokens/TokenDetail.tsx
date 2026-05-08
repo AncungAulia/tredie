@@ -560,7 +560,7 @@ export default function TokenDetail({ id }: { id: string }) {
                     isAnimationActive
                     animationBegin={0}
                     animationDuration={700}
-                    animationEasing="cubic-bezier(0.34, 1.56, 0.64, 1)"
+                    animationEasing="ease-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>
