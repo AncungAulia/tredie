@@ -106,12 +106,12 @@ export class TrendingPoller {
     globalThis.__tredieTrendingPollerCronRegistered = true;
 
     this.pollAll().catch((e) => log.error({ err: e }, "Initial poll failed"));
-    cron.schedule("*/15 * * * *", () => {
+    cron.schedule(config.TRENDING_POLL_CRON, () => {
       this.pollAll().catch((e) =>
         log.error({ err: e }, "Scheduled poll failed"),
       );
     });
-    log.info("TrendingPoller started (every 15 min)");
+    log.info({ schedule: config.TRENDING_POLL_CRON }, "TrendingPoller started");
   }
 
   async pollAll() {

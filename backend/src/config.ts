@@ -33,6 +33,17 @@ const envSchema = z.object({
   GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   AI_GATING_ENABLED: z.string().default("true").transform((v) => v === "true"),
   AI_MIN_CONFIDENCE_BPS: z.string().default("4000").transform(Number),
+
+  // Cron expression for the TrendingPoller. Default 2h cadence keeps us
+  // well inside the Gemini free-tier 20 RPD budget while still reacting
+  // to emerging narratives within a workday. Trends don't move so fast
+  // that 15-min granularity is required.
+  // Examples:
+  //   "0 */2 * * *"  every 2 hours (default, 12 cycles/day)
+  //   "0 */1 * * *"  hourly (24/day, paid Gemini tier required)
+  //   "0 12 * * *"   daily at noon (1/day, very conservative)
+  //   "*/15 * * * *" every 15 min (legacy, will exhaust free tier)
+  TRENDING_POLL_CRON: z.string().default("0 */2 * * *"),
 });
 
 const parsed = envSchema.safeParse(process.env);

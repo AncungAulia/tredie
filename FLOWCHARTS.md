@@ -225,7 +225,7 @@ Detail flow dari Elfa polling sampai market ter-spawn on-chain.
 
 ```mermaid
 flowchart TD
-    Start([Cron: every 15 min<br/>or POST /admin/poll-trending])
+    Start([Cron: TRENDING_POLL_CRON env<br/>default 2h<br/>or POST /admin/poll-trending])
 
     Start --> ParColl[Promise.allSettled - parallel collect]
 
@@ -625,24 +625,22 @@ flowchart TD
 
 ## 13. Cron Schedule (Reference Card)
 
-| Service | Schedule | Offset | Purpose |
-|---------|----------|--------|---------|
-| Trending Poller | `*/15 * * * *` | 0 min | Elfa polling + AI gating + spawn |
-| Oracle Updater | `*/15 * * * *` | 0 min | Push mindshare to on-chain oracle |
-| Local Hype Detector | `*/15 * * * *` | 7 min | Detect surges, boost peak on-chain |
-| Auto Rotation | `0 2 * * *` | daily 02:00 | Recreate expiring Auto subscriptions |
+| Service | Schedule | Configurable? | Purpose |
+|---------|----------|---------------|---------|
+| Trending Poller | `TRENDING_POLL_CRON` env, default `0 */2 * * *` (every 2h) | ✅ env-tunable | Elfa polling + AI gating + spawn |
+| Oracle Updater | `*/15 * * * *` | hardcoded | Push mindshare to on-chain oracle |
+| Local Hype Detector | `7,22,37,52 * * * *` | hardcoded | Detect surges, boost peak on-chain |
+| Auto Rotation | `0 2 * * *` (daily 02:00) | hardcoded | Recreate expiring Auto subscriptions |
+
+The TrendingPoller default is throttled to 2h to fit inside the Gemini free
+tier (20 requests/day). Bump to `*/15 * * * *` if running a paid Gemini plan.
 
 ```mermaid
 flowchart LR
-    M0[":00"] --> M7[":07"] --> M15[":15"] --> M22[":22"] --> M30[":30"] --> M37[":37"] --> M45[":45"] --> M52[":52"]
-    M0 -.runs.-> Pol1[Poller + Oracle]
-    M7 -.runs.-> Hyp1[Hype Detector]
-    M15 -.runs.-> Pol2[Poller + Oracle]
-    M22 -.runs.-> Hyp2[Hype Detector]
-    M30 -.runs.-> Pol3[Poller + Oracle]
-    M37 -.runs.-> Hyp3[Hype Detector]
-    M45 -.runs.-> Pol4[Poller + Oracle]
-    M52 -.runs.-> Hyp4[Hype Detector]
+    H0[":00 (every 2h: poller)"] --> H7[":07 (hype)"] --> H15[":15 (oracle)"] --> H22[":22 (hype)"] --> H30[":30 (oracle)"] --> H37[":37 (hype)"] --> H45[":45 (oracle)"] --> H52[":52 (hype)"]
+    H0 -.fires.-> Pol[TrendingPoller + OracleUpdater]
+    H15 -.fires.-> Or[OracleUpdater only]
+    H7 -.fires.-> Hy[LocalHypeDetector]
 ```
 
 ---
