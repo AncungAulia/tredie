@@ -949,6 +949,12 @@ export function PortfolioButton() {
 
 ## 11. Discovery Components
 
+> **Ranking logic**: Market di-sort by **mindshare** (social attention dari Elfa AI), bukan by marketcap.
+> Ini bedanya dengan Zora — yang trending secara sosial (banyak disebut di X/Telegram) yang muncul paling atas,
+> bukan yang paling besar market cap-nya. `sortBy=mindshare` adalah default di semua feed.
+> Harga token bisa naik DAN turun (pure AMM — buy naik, sell turun).
+> Yang one-way hanya ratchet multiplier di oracle (display-only, tidak mempengaruhi harga).
+
 ### `components/discovery/DiscoveryTabs.tsx`
 
 ```tsx
