@@ -136,7 +136,7 @@ export default function NotFound() {
           {/* CTA */}
           <motion.div variants={fadeUp}>
             <Link
-              href="/topics"
+              href="/trends"
               className="inline-flex items-center gap-2 h-10 px-6 rounded-md bg-[#9C93E8] hover:bg-[#B3ABF0] text-black text-sm font-semibold transition-colors duration-200"
             >
               Back to Markets

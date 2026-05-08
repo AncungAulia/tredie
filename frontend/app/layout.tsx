@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import PrivyProviderWrapper from "@/components/providers/PrivyProviderWrapper";
+import QueryProvider from "@/providers/QueryProvider";
 
 const Font1 = localFont({
   src: [{ path: "./fonts/font1.woff2", weight: "300", style: "normal" }],
@@ -38,9 +39,11 @@ export default function RootLayout({
       className={`${Font1.variable} ${Font2.variable} ${Font3.variable} antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#09090B] text-[#FAFAFA] font-sans">
-        <PrivyProviderWrapper>
-          <AppLayout>{children}</AppLayout>
-        </PrivyProviderWrapper>
+        <QueryProvider>
+          <PrivyProviderWrapper>
+            <AppLayout>{children}</AppLayout>
+          </PrivyProviderWrapper>
+        </QueryProvider>
       </body>
     </html>
   );
