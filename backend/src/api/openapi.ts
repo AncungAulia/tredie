@@ -23,6 +23,7 @@ export const openApiSpec = {
     { name: "resolve-link", description: "Paste social link → metadata + extracted symbol" },
     { name: "auto-queries", description: "Auto hype watcher state (debug/observability)" },
     { name: "admin", description: "Manual triggers for cron jobs" },
+    { name: "portfolio", description: "Per-wallet positions, PnL, and trade activity" },
     { name: "webhooks", description: "Inbound from Helius + Elfa Auto" },
   ],
   paths: {
@@ -120,16 +121,35 @@ export const openApiSpec = {
         responses: { "200": { description: "OK" }, "404": { description: "Market not found" }, "502": { description: "Elfa Chat unavailable (paid tier required)" } },
       },
     },
+    "/api/v1/markets/estimate": {
+      post: {
+        tags: ["markets"],
+        summary: "Preview buy/sell output (mirrors on-chain AMM) without building a tx",
+        description:
+          "Server-side AMM math identical to the on-chain program. Returns tokensOut/solOut, fee, price impact, and minOut after slippage. Use this to populate the trade preview before the user signs.",
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/EstimateRequest" } } },
+        },
+        responses: {
+          "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/EstimateResponse" } } } },
+          "400": { description: "Validation error / curve math failed" },
+          "404": { description: "Market not found" },
+        },
+      },
+    },
     "/api/v1/markets/prepare-trade": {
       post: {
         tags: ["markets"],
-        summary: "Build unsigned buy/sell tx for frontend wallet to sign",
+        summary: "Build unsigned buy/sell tx with server-side slippage protection",
+        description:
+          "Backend re-runs the estimate, derives min_tokens_out / min_sol_out from slippageBps, and bakes that into the on-chain instruction. Response includes the unsigned base64 tx plus the estimate used.",
         requestBody: {
           required: true,
           content: { "application/json": { schema: { $ref: "#/components/schemas/PrepareTradeRequest" } } },
         },
         responses: {
-          "200": { description: "OK", content: { "application/json": { schema: { type: "object", properties: { transaction: { type: "string", description: "base64 unsigned tx" } } } } } },
+          "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/PrepareTradeResponse" } } } },
           "400": { description: "Validation error" },
           "404": { description: "Market not found" },
         },
@@ -194,6 +214,23 @@ export const openApiSpec = {
           { name: "limit", in: "query", schema: { type: "integer", default: 100, maximum: 500 } },
         ],
         responses: { "200": { description: "OK" } },
+      },
+    },
+
+    "/api/v1/portfolio/{address}": {
+      get: {
+        tags: ["portfolio"],
+        summary: "Per-wallet positions, aggregate stats, and recent activity",
+        description:
+          "All data derived from the trades table joined with markets. Positions include unrealized PnL valued at current AMM spot price. Realized PnL is approximated via proportional cost basis (not strict FIFO).",
+        parameters: [
+          { name: "address", in: "path", required: true, schema: { type: "string" }, description: "Solana base58 wallet pubkey" },
+          { name: "limit", in: "query", schema: { type: "integer", default: 200, maximum: 500 }, description: "Activity rows to return" },
+        ],
+        responses: {
+          "200": { description: "OK", content: { "application/json": { schema: { $ref: "#/components/schemas/PortfolioResponse" } } } },
+          "400": { description: "Invalid address" },
+        },
       },
     },
 
@@ -365,6 +402,146 @@ export const openApiSpec = {
               },
             },
           },
+        },
+      },
+      EstimateRequest: {
+        type: "object",
+        required: ["identifier", "side"],
+        properties: {
+          identifier: { type: "string", example: "BTC" },
+          side: { type: "string", enum: ["buy", "sell"] },
+          solAmount: { type: "number", description: "SOL units. Required for side=buy." },
+          tokenAmount: { type: "string", description: "Raw u64 base units. Required for side=sell." },
+          slippageBps: { type: "integer", default: 100, minimum: 0, maximum: 10000 },
+        },
+      },
+      EstimateResponse: {
+        type: "object",
+        properties: {
+          side: { type: "string", enum: ["buy", "sell"] },
+          input: { type: "object", description: "Echo of input bigints as strings" },
+          output: {
+            type: "object",
+            properties: {
+              tokensOut: { type: "string", description: "Buy: estimated tokens (base units, bigint string)" },
+              minTokensOut: { type: "string", description: "Buy: tokensOut after slippage tolerance" },
+              solOut: { type: "string", description: "Sell: estimated lamports out" },
+              minSolOut: { type: "string", description: "Sell: solOut after slippage tolerance" },
+            },
+          },
+          fee: {
+            type: "object",
+            properties: {
+              lamports: { type: "string" },
+              bps: { type: "integer" },
+            },
+          },
+          price: {
+            type: "object",
+            properties: {
+              effective: { type: "number", description: "lamports / token base unit for this trade" },
+              spotBefore: { type: "number" },
+              spotAfter: { type: "number" },
+              impactBps: { type: "integer", description: "(effective - spotBefore) / spotBefore in bps" },
+            },
+          },
+          slippageBps: { type: "integer" },
+        },
+      },
+      PrepareTradeResponse: {
+        type: "object",
+        properties: {
+          transaction: { type: "string", description: "base64 unsigned tx" },
+          estimate: {
+            type: "object",
+            description:
+              "Echo of the estimate the backend used to derive on-chain min_out — same numbers FE saw in /estimate, baked into the tx as slippage protection.",
+            properties: {
+              tokensOut: { type: "string", nullable: true },
+              minTokensOut: { type: "string", nullable: true },
+              solOut: { type: "string", nullable: true },
+              minSolOut: { type: "string", nullable: true },
+              priceImpactBps: { type: "integer" },
+            },
+          },
+        },
+      },
+      PortfolioResponse: {
+        type: "object",
+        properties: {
+          address: { type: "string" },
+          positions: {
+            type: "array",
+            items: { $ref: "#/components/schemas/PortfolioPosition" },
+          },
+          stats: { $ref: "#/components/schemas/PortfolioStats" },
+          activity: {
+            type: "array",
+            items: { $ref: "#/components/schemas/PortfolioActivity" },
+          },
+        },
+      },
+      PortfolioPosition: {
+        type: "object",
+        description:
+          "Per-market aggregate. Tokens stored as bigint strings (base units, decimals=6). Lamport amounts also bigint strings.",
+        properties: {
+          market_pda: { type: "string" },
+          identifier: { type: "string" },
+          display_name: { type: "string", nullable: true },
+          asset_class: { type: "integer" },
+          mint: { type: "string" },
+          current_mindshare_bps: { type: "integer" },
+          ratchet_multiplier_bps: { type: "integer" },
+          tokens_bought: { type: "string" },
+          tokens_sold: { type: "string" },
+          tokens_held: { type: "string" },
+          sol_invested_lamports: { type: "string" },
+          sol_received_lamports: { type: "string" },
+          avg_entry_price_lamports: { type: "number", description: "lamports / token base unit" },
+          current_spot_price_lamports: { type: "number" },
+          held_value_lamports: { type: "string" },
+          held_cost_basis_lamports: { type: "string" },
+          realized_pnl_lamports: { type: "string", description: "Approximation via proportional cost basis (not strict FIFO)" },
+          unrealized_pnl_lamports: { type: "string" },
+          buy_count: { type: "string" },
+          sell_count: { type: "string" },
+          first_buy_at: { type: "string", nullable: true, description: "block_time of first buy (unix sec, bigint string)" },
+          last_trade_at: { type: "string", nullable: true },
+        },
+      },
+      PortfolioStats: {
+        type: "object",
+        properties: {
+          total_trades: { type: "integer" },
+          buy_count: { type: "integer" },
+          sell_count: { type: "integer" },
+          closed_trades: { type: "integer", description: "Positions where tokens_held == 0 and at least one sell" },
+          win_rate_bps: { type: "integer", description: "Percent of closed trades with realized PnL > 0, in bps (10000 = 100%)" },
+          total_volume_lamports: { type: "string" },
+          sol_spent_lamports: { type: "string" },
+          sol_received_lamports: { type: "string" },
+          realized_pnl_lamports: { type: "string" },
+          unrealized_pnl_lamports: { type: "string" },
+          total_held_value_lamports: { type: "string" },
+          avg_profit_per_trade_lamports: { type: "number" },
+        },
+      },
+      PortfolioActivity: {
+        type: "object",
+        description: "Single trade joined with its market identifier for FE convenience.",
+        properties: {
+          signature: { type: "string" },
+          market_pda: { type: "string" },
+          identifier: { type: "string" },
+          display_name: { type: "string", nullable: true },
+          asset_class: { type: "integer" },
+          side: { type: "integer", enum: [0, 1], description: "0=buy, 1=sell" },
+          sol_amount: { type: "string" },
+          token_amount: { type: "string" },
+          ratchet_bps: { type: "integer" },
+          block_time: { type: "string", description: "unix seconds" },
+          slot: { type: "string" },
         },
       },
     },

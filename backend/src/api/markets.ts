@@ -9,6 +9,13 @@ import { connection } from "../solana/connection";
 import { oraclePda } from "../solana/pda";
 import { decodeOracle } from "../solana/decoder";
 import * as elfaClient from "../elfa/client";
+import {
+  estimateBuy,
+  estimateSell,
+  applySlippageMin,
+  getProtocolFeeBps,
+  MarketCurveState,
+} from "../services/amm-math";
 
 export const marketsRoutes = new Hono();
 
@@ -17,11 +24,21 @@ const jsonSafe = (v: unknown): unknown =>
     JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
   );
 
+function curveStateOf(m: db.MarketRow): MarketCurveState {
+  return {
+    baseVirtualSol: BigInt(m.base_virtual_sol),
+    virtualTokenSupply: BigInt(m.virtual_token_supply),
+    realSolReserves: BigInt(m.real_sol_reserves),
+    tokensMinted: BigInt(m.tokens_minted),
+  };
+}
+
 marketsRoutes.get("/", async (c) => {
   const assetClass = c.req.query("assetClass");
   const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
   const sortBy = c.req.query("sortBy") ?? "mindshare";
   const order = c.req.query("order") === "asc" ? "ASC" : "DESC";
+  const includeSparkline = c.req.query("sparkline") !== "false";
 
   const sortCol =
     sortBy === "volume" ? sql`real_sol_reserves` : sql`current_mindshare_bps`;
@@ -29,11 +46,11 @@ marketsRoutes.get("/", async (c) => {
 
   const rows =
     assetClass !== undefined && assetClass !== ""
-      ? await sql`
+      ? await sql<db.MarketRow[]>`
           SELECT * FROM markets WHERE asset_class = ${Number(assetClass)}
           ORDER BY ${sortCol} ${dir} LIMIT ${limit}
         `
-      : await sql`
+      : await sql<db.MarketRow[]>`
           SELECT * FROM markets
           ORDER BY ${sortCol} ${dir} LIMIT ${limit}
         `;
@@ -47,7 +64,62 @@ marketsRoutes.get("/", async (c) => {
           SELECT COUNT(*)::bigint as count FROM markets
         `;
 
-  return c.json(jsonSafe({ markets: rows, total: count }));
+  // Bulk-fetch 24h aggregates so list view doesn't N+1.
+  const pdas = rows.map((r) => r.pda);
+  const enriched: any[] = rows;
+
+  if (pdas.length > 0) {
+    const cutoffSec = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
+    const cutoffMs = BigInt(Date.now() - 24 * 3600_000);
+
+    const [vol24h, holders, sparkRows] = await Promise.all([
+      sql<{ market_pda: string; volume: bigint; trade_count: bigint }[]>`
+        SELECT market_pda,
+               COALESCE(SUM(sol_amount), 0)::bigint AS volume,
+               COUNT(*)::bigint AS trade_count
+        FROM trades
+        WHERE market_pda = ANY(${pdas as any}) AND block_time > ${cutoffSec}
+        GROUP BY market_pda
+      `,
+      sql<{ market_pda: string; holders: bigint }[]>`
+        SELECT market_pda, COUNT(DISTINCT trader)::bigint AS holders
+        FROM trades
+        WHERE market_pda = ANY(${pdas as any})
+        GROUP BY market_pda
+      `,
+      includeSparkline
+        ? sql<{ market_pda: string; bucket: bigint; bps: number }[]>`
+            SELECT market_pda,
+                   ((recorded_at / 3600000) * 3600000)::bigint AS bucket,
+                   AVG(current_bps)::int AS bps
+            FROM mindshare_history
+            WHERE market_pda = ANY(${pdas as any})
+              AND recorded_at > ${cutoffMs}
+            GROUP BY market_pda, bucket
+            ORDER BY market_pda, bucket ASC
+          `
+        : Promise.resolve([] as any[]),
+    ]);
+
+    const volMap = new Map(vol24h.map((v) => [v.market_pda, v]));
+    const holdersMap = new Map(holders.map((h) => [h.market_pda, h.holders]));
+    const sparkMap = new Map<string, number[]>();
+    for (const r of sparkRows) {
+      const arr = sparkMap.get(r.market_pda) ?? [];
+      arr.push(r.bps);
+      sparkMap.set(r.market_pda, arr);
+    }
+
+    for (const m of enriched) {
+      const v = volMap.get(m.pda);
+      m.volume_24h_lamports = v?.volume ?? 0n;
+      m.trade_count_24h = v?.trade_count ?? 0n;
+      m.holders_count = holdersMap.get(m.pda) ?? 0n;
+      if (includeSparkline) m.sparkline_24h = sparkMap.get(m.pda) ?? [];
+    }
+  }
+
+  return c.json(jsonSafe({ markets: enriched, total: count }));
 });
 
 marketsRoutes.get("/:identifier", async (c) => {
@@ -55,13 +127,48 @@ marketsRoutes.get("/:identifier", async (c) => {
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
-  const [history, trades] = await Promise.all([
+  const cutoffSec = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
+
+  const [history, trades, vol, holders] = await Promise.all([
     db.getMindshareHistory(market.pda, 200),
     db.getRecentTrades(market.pda, 50),
+    sql<{ volume: bigint; trade_count: bigint }[]>`
+      SELECT COALESCE(SUM(sol_amount), 0)::bigint AS volume,
+             COUNT(*)::bigint AS trade_count
+      FROM trades
+      WHERE market_pda = ${market.pda} AND block_time > ${cutoffSec}
+    `,
+    sql<{ holders: bigint }[]>`
+      SELECT COUNT(DISTINCT trader)::bigint AS holders
+      FROM trades WHERE market_pda = ${market.pda}
+    `,
   ]);
 
+  // autoEvents = subset of mindshareHistory tagged as auto_event surges,
+  // pre-filtered for FE chart annotations (rather than scanning client-side).
+  const autoEvents = history.filter((h) => h.source === "auto_event");
+
+  // Compute current spot price (lamports per token base unit) from curve state.
+  const poolSol =
+    BigInt(market.base_virtual_sol) + BigInt(market.real_sol_reserves);
+  const poolTokens =
+    BigInt(market.virtual_token_supply) - BigInt(market.tokens_minted);
+  const spotPriceLamports =
+    poolTokens > 0n ? Number(poolSol) / Number(poolTokens) : 0;
+
   return c.json(
-    jsonSafe({ market, mindshareHistory: history, recentTrades: trades }),
+    jsonSafe({
+      market,
+      mindshareHistory: history,
+      recentTrades: trades,
+      autoEvents,
+      stats: {
+        volume_24h_lamports: vol[0]?.volume ?? 0n,
+        trade_count_24h: vol[0]?.trade_count ?? 0n,
+        holders_count: holders[0]?.holders ?? 0n,
+        spot_price_lamports_per_token: spotPriceLamports,
+      },
+    }),
   );
 });
 
@@ -236,19 +343,97 @@ marketsRoutes.get("/:identifier/ai-context", async (c) => {
   }
 });
 
+const estimateSchema = z.object({
+  identifier: z.string(),
+  side: z.enum(["buy", "sell"]),
+  solAmount: z.number().positive().optional(),
+  tokenAmount: z.string().optional(),
+  slippageBps: z.number().int().min(0).max(10000).default(100),
+});
+
+// Preview the buy/sell output without building a tx. Mirrors the SC AMM curve
+// exactly so frontend can show the user "you will receive ~N tokens" before
+// signing.
+marketsRoutes.post("/estimate", async (c) => {
+  const body = estimateSchema.safeParse(await c.req.json());
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { identifier, side, solAmount, tokenAmount, slippageBps } = body.data;
+
+  const market = await db.getMarketByIdentifier(identifier);
+  if (!market) return c.json({ error: "Market not found" }, 404);
+
+  const feeBps = await getProtocolFeeBps();
+  const state = curveStateOf(market);
+
+  try {
+    if (side === "buy") {
+      if (solAmount === undefined)
+        return c.json({ error: "solAmount required for buy" }, 400);
+      const solIn = BigInt(Math.floor(solAmount * 1e9));
+      const est = estimateBuy(state, solIn, feeBps);
+      const minOut = applySlippageMin(est.tokensOut, slippageBps);
+      return c.json(
+        jsonSafe({
+          side: "buy",
+          input: { solIn },
+          output: {
+            tokensOut: est.tokensOut,
+            minTokensOut: minOut,
+          },
+          fee: { lamports: est.fee, bps: feeBps },
+          price: {
+            effective: est.effectivePrice,
+            spotBefore: est.spotPriceBefore,
+            spotAfter: est.spotPriceAfter,
+            impactBps: est.priceImpactBps,
+          },
+          slippageBps,
+        }),
+      );
+    } else {
+      if (!tokenAmount)
+        return c.json({ error: "tokenAmount required for sell" }, 400);
+      const tokensIn = BigInt(tokenAmount);
+      const est = estimateSell(state, tokensIn, feeBps);
+      const minOut = applySlippageMin(est.solOut, slippageBps);
+      return c.json(
+        jsonSafe({
+          side: "sell",
+          input: { tokensIn },
+          output: {
+            solOut: est.solOut,
+            minSolOut: minOut,
+          },
+          fee: { lamports: est.fee, bps: feeBps },
+          price: {
+            effective: est.effectivePrice,
+            spotBefore: est.spotPriceBefore,
+            spotAfter: est.spotPriceAfter,
+            impactBps: est.priceImpactBps,
+          },
+          slippageBps,
+        }),
+      );
+    }
+  } catch (e: any) {
+    return c.json({ error: `Estimate failed: ${e?.message ?? e}` }, 400);
+  }
+});
+
 const prepareTradeSchema = z.object({
   identifier: z.string(),
   side: z.enum(["buy", "sell"]),
-  solAmount: z.number().optional(),
+  solAmount: z.number().positive().optional(),
   tokenAmount: z.string().optional(),
-  slippageBps: z.number().int().nonnegative().default(100),
+  slippageBps: z.number().int().min(0).max(10000).default(100),
   trader: z.string(),
 });
 
 marketsRoutes.post("/prepare-trade", async (c) => {
   const body = prepareTradeSchema.safeParse(await c.req.json());
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  const { identifier, side, solAmount, tokenAmount, trader } = body.data;
+  const { identifier, side, solAmount, tokenAmount, slippageBps, trader } =
+    body.data;
 
   const market = await db.getMarketByIdentifier(identifier);
   if (!market) return c.json({ error: "Market not found" }, 404);
@@ -256,34 +441,60 @@ marketsRoutes.post("/prepare-trade", async (c) => {
   const traderPk = new PublicKey(trader);
   const mintPk = new PublicKey(market.mint);
 
+  // Re-estimate server-side and apply slippage so on-chain min_out enforces
+  // protection against sandwich/MEV between estimate and execution.
+  const feeBps = await getProtocolFeeBps();
+  const state = curveStateOf(market);
+
   let tx;
-  if (side === "buy") {
-    if (solAmount === undefined)
-      return c.json({ error: "solAmount required for buy" }, 400);
-    const solIn = BigInt(Math.floor(solAmount * 1e9));
-    tx = await buildBuyTx({
-      buyer: traderPk,
-      identifier,
-      mintPubkey: mintPk,
-      solAmountIn: solIn,
-      minTokensOut: 0n,
-    });
-  } else {
-    if (!tokenAmount)
-      return c.json({ error: "tokenAmount required for sell" }, 400);
-    tx = await buildSellTx({
-      seller: traderPk,
-      identifier,
-      mintPubkey: mintPk,
-      tokensIn: BigInt(tokenAmount),
-      minSolOut: 0n,
-    });
+  let estimate: any;
+  try {
+    if (side === "buy") {
+      if (solAmount === undefined)
+        return c.json({ error: "solAmount required for buy" }, 400);
+      const solIn = BigInt(Math.floor(solAmount * 1e9));
+      const est = estimateBuy(state, solIn, feeBps);
+      const minTokensOut = applySlippageMin(est.tokensOut, slippageBps);
+      estimate = {
+        tokensOut: est.tokensOut.toString(),
+        minTokensOut: minTokensOut.toString(),
+        priceImpactBps: est.priceImpactBps,
+      };
+      tx = await buildBuyTx({
+        buyer: traderPk,
+        identifier,
+        mintPubkey: mintPk,
+        solAmountIn: solIn,
+        minTokensOut,
+      });
+    } else {
+      if (!tokenAmount)
+        return c.json({ error: "tokenAmount required for sell" }, 400);
+      const tokensIn = BigInt(tokenAmount);
+      const est = estimateSell(state, tokensIn, feeBps);
+      const minSolOut = applySlippageMin(est.solOut, slippageBps);
+      estimate = {
+        solOut: est.solOut.toString(),
+        minSolOut: minSolOut.toString(),
+        priceImpactBps: est.priceImpactBps,
+      };
+      tx = await buildSellTx({
+        seller: traderPk,
+        identifier,
+        mintPubkey: mintPk,
+        tokensIn,
+        minSolOut,
+      });
+    }
+  } catch (e: any) {
+    return c.json({ error: `Trade prep failed: ${e?.message ?? e}` }, 400);
   }
 
   return c.json({
     transaction: tx
       .serialize({ requireAllSignatures: false })
       .toString("base64"),
+    estimate,
   });
 });
 

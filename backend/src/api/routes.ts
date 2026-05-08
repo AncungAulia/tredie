@@ -8,6 +8,7 @@ import { webhookRoutes } from "./webhooks";
 import { factoryRoutes } from "./factory";
 import { autoQueriesRoutes } from "./auto-queries";
 import { adminRoutes } from "./admin";
+import { portfolioRoutes } from "./portfolio";
 import { swaggerUI } from "@hono/swagger-ui";
 import { openApiSpec } from "./openapi";
 
@@ -23,6 +24,7 @@ export function buildRouter() {
   v1.route("/factory", factoryRoutes);
   v1.route("/auto-queries", autoQueriesRoutes);
   v1.route("/admin", adminRoutes);
+  v1.route("/portfolio", portfolioRoutes);
 
   app.route("/api/v1", v1);
   app.route("/api/webhooks", webhookRoutes);
