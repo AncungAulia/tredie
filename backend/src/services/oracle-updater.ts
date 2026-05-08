@@ -149,8 +149,12 @@ export class OracleUpdater {
    * Returns 0 jika data tidak tersedia — caller skip update.
    */
   async fetchMindshareBps(market: db.MarketRow): Promise<number> {
+    // Strip the attention-token prefix to recover the underlying ticker
+    // for Elfa lookups. Elfa knows "BTC" / "NVDA", not "aBTC" / "axNVDA".
+    const baseTicker = stripAttentionPrefix(market.identifier, market.asset_class);
+
     if (market.asset_class < 2) {
-      const cached = await db.getLatestTrendingToken(market.identifier);
+      const cached = await db.getLatestTrendingToken(baseTicker);
       if (cached && Date.now() - Number(cached.fetched_at) < 20 * 60 * 1000) {
         return Math.min(
           MINDSHARE_BPS_MAX,
@@ -158,7 +162,7 @@ export class OracleUpdater {
         );
       }
       try {
-        const res = await elfa.getTopMentions(market.identifier, "1h");
+        const res = await elfa.getTopMentions(baseTicker, "1h");
         return elfa.topMentionsToBps(res.metadata?.total ?? 0, 10);
       } catch {
         return 0;
@@ -167,7 +171,7 @@ export class OracleUpdater {
 
     if (market.asset_class >= 2 && market.asset_class <= 4) {
       try {
-        const res = await elfa.getTopMentions(market.identifier, "1h");
+        const res = await elfa.getTopMentions(baseTicker, "1h");
         return elfa.topMentionsToBps(res.metadata?.total ?? 0, 5);
       } catch {
         return 0;
@@ -175,7 +179,12 @@ export class OracleUpdater {
     }
 
     if (market.asset_class === 6) {
-      const keyword = elfa.trendIdToKeyword(market.identifier);
+      // Prefer display_name for trend search (natural language, more
+      // descriptive), fall back to identifier-as-keyword.
+      const keyword =
+        market.display_name ??
+        elfa.trendIdToKeyword(market.identifier) ??
+        market.identifier;
       if (!keyword) return 0;
       try {
         const res = await elfa.getKeywordMentions(keyword, "1h");
@@ -185,9 +194,25 @@ export class OracleUpdater {
       }
     }
 
-    // CA: pakai latest trending_cas mention count
+    // CA: latest trending_cas mention count (not yet wired)
     return 0;
   }
+}
+
+/**
+ * Recover the bare ticker from an attention-token identifier.
+ *   aBTC    → BTC   (class 0/1: strip leading "a")
+ *   axNVDA  → NVDA  (class 2-4: strip leading "ax")
+ *   anything else → unchanged
+ */
+function stripAttentionPrefix(identifier: string, assetClass: number): string {
+  if (assetClass < 2 && identifier.startsWith("a") && identifier.length > 1) {
+    return identifier.slice(1);
+  }
+  if (assetClass >= 2 && assetClass <= 4 && identifier.startsWith("ax")) {
+    return identifier.slice(2);
+  }
+  return identifier;
 }
 
 export const oracleUpdater = new OracleUpdater();
