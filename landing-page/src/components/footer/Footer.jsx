@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { gsap } from "gsap";
 import Link from "next/link";
+import { useLenis } from "lenis/react";
 import ScrollTrigger from "gsap/dist/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,16 +13,17 @@ const Footer = () => {
   const containerRef = useRef(null);
 
   const [hoveredIndex, setHoveredIndex] = useState(null);
+  const lenis = useLenis();
 
   const navItems = [
-    { title: "Home", href: "/" },
-    { title: "About", href: "/about" },
-    { title: "Markets", href: "/markets" },
-    { title: "How It Works", href: "/how-it-works" },
-    { title: "Trending", href: "/trending" },
-    { title: "Portfolio", href: "/portfolio" },
-    { title: "Docs", href: "/docs" },
-    { title: "Contact", href: "/contact" },
+    { title: "Home",         scrollTo: "#hero" },
+    { title: "About",        scrollTo: "#about" },
+    { title: "Markets",      scrollTo: "#markets" },
+    { title: "How It Works", scrollTo: "#insights" },
+    { title: "Trending",     scrollTo: "#casee-study" },
+    { title: "Portfolio",    href: "https://app.tredie.fun" },
+    { title: "Docs",         href: "/docs" },
+    { title: "Contact",      scrollTo: "#footer-wrapper" },
   ];
 
   const socialItems = [
@@ -100,10 +102,8 @@ const Footer = () => {
               Trade the <br /> Attention Economy
             </h1>
             <div className="text-[1vw] leading-[1.6vw] font-light text-gray-300 mt-auto">
-              <p>Tredie Fun</p>
-              <p>Solana Devnet</p>
-              <p>Colosseum Frontier 2026</p>
-              <p className="mt-[1vw]">solana.frontier@tredie.xyz</p>
+              <p>Tredie</p>
+              <p>Live On Solana Devnet</p>
             </div>
           </div>
 
@@ -126,12 +126,21 @@ const Footer = () => {
                     onMouseEnter={() => setHoveredIndex(i)}
                     onMouseLeave={() => setHoveredIndex(null)}
                   >
-                    <Link
-                      href={item.href}
-                      className=" cursor-pointer transition-colors duration-300 hover:text-[##9C93E8]"
-                    >
-                      {item.title}
-                    </Link>
+                    {item.scrollTo ? (
+                      <button
+                        onClick={() => lenis?.scrollTo(item.scrollTo, { duration: 1.2 })}
+                        className="cursor-pointer transition-colors duration-300 hover:text-[#9C93E8]"
+                      >
+                        {item.title}
+                      </button>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className="cursor-pointer transition-colors duration-300 hover:text-[#9C93E8]"
+                      >
+                        {item.title}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
