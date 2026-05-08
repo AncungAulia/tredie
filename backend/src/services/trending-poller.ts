@@ -208,6 +208,19 @@ export class TrendingPoller {
         fetched_at: BigInt(Date.now()),
       });
 
+      // Build attention-token identifier per new convention:
+      //   crypto/dex (asset_class 0/1) → "a" + UPPERCASE ticker
+      //   equity/commodity/fx (2/3/4)  → "ax" + UPPERCASE ticker (Elfa
+      //     prefixes them with "xyz:" already; strip and re-prefix)
+      const cls = detectAssetClass(sym);
+      const baseTicker = sym.startsWith("xyz:") ? sym.slice(4) : sym;
+      const attnIdentifier =
+        cls === 0 || cls === 1 ? `a${baseTicker}` : `ax${baseTicker}`;
+      // Validate length cap; if ticker too long, fallback identifier becomes
+      // empty so legacy-spawn skips it (AI path can shorten more aggressively).
+      const fallbackIdentifier =
+        Buffer.byteLength(attnIdentifier, "utf8") <= 10 ? attnIdentifier : "";
+
       out.push({
         sourceKind: "token" as const,
         sourceKey: sym,
@@ -220,9 +233,13 @@ export class TrendingPoller {
           rank: idx + 1,
         },
         fallback: {
-          identifier: sym,
-          assetClass: detectAssetClass(sym),
-          shouldSpawnByRule: mindsharePct > config.AUTO_SPAWN_THRESHOLD_PCT,
+          identifier: fallbackIdentifier,
+          assetClass: cls,
+          // Use the bare ticker as a friendly display when no AI metadata
+          displayName: baseTicker,
+          shouldSpawnByRule:
+            !!fallbackIdentifier &&
+            mindsharePct > config.AUTO_SPAWN_THRESHOLD_PCT,
         },
       });
     }
