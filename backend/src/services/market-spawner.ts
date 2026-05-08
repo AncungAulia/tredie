@@ -13,7 +13,14 @@ const DEFAULT_VIRTUAL_TOKEN_SUPPLY = 1_000_000_000_000_000n;
 const DEFAULT_ELASTICITY_BPS = 5000;
 
 export class MarketSpawner {
-  private pending = new Set<string>();
+  /**
+   * In-flight spawn promises keyed by identifier. Concurrent callers asking
+   * for the same identifier await the same promise instead of racing into N
+   * parallel `create_market` txs. Critical when multiple cron-fired pollAlls
+   * (or hot-reload duplicates) hand off the same candidate before any of
+   * them reaches the DB persist step.
+   */
+  private inflight = new Map<string, Promise<db.MarketRow>>();
 
   async ensureMarket(params: {
     identifier: string;
@@ -30,24 +37,25 @@ export class MarketSpawner {
     const existing = await db.getMarketByIdentifier(identifier);
     if (existing) return existing;
 
-    // 2. On-chain check — market PDA might exist from prior run/another env
-    //    (DB truncated, switched Supabase project, dll). Decode + sync to DB.
+    // 2. On-chain check — market PDA might exist from prior run/another env.
+    //    Decode + sync to DB.
     const synced = await this.syncFromChain(params);
     if (synced) return synced;
 
-    // 3. Pending in-flight spawn — wait briefly and retry
-    if (this.pending.has(identifier)) {
-      await new Promise((r) => setTimeout(r, 3000));
-      const after = await db.getMarketByIdentifier(identifier);
-      return after ?? this.ensureMarket(params);
-    }
+    // 3. In-flight spawn for the same identifier — await the existing
+    //    promise instead of racing.
+    const inflight = this.inflight.get(identifier);
+    if (inflight) return inflight;
 
-    this.pending.add(identifier);
-    try {
-      return await this.spawn(params);
-    } finally {
-      this.pending.delete(identifier);
-    }
+    const p = (async () => {
+      try {
+        return await this.spawn(params);
+      } finally {
+        this.inflight.delete(identifier);
+      }
+    })();
+    this.inflight.set(identifier, p);
+    return p;
   }
 
   /**

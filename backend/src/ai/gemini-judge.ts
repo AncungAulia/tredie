@@ -111,10 +111,15 @@ const RESPONSE_SCHEMA = {
   required: ["decisions"],
 };
 
+export type JudgeOutcome =
+  | { ok: true; decisions: JudgeDecision[] }
+  | { ok: false; reason: "no_key" | "rate_limited" | "http_error" | "invalid_json" | "fetch_failed" };
+
 export async function judgeCandidates(
   candidates: JudgeCandidate[],
-): Promise<JudgeDecision[] | null> {
-  if (!config.GEMINI_API_KEY || candidates.length === 0) return null;
+): Promise<JudgeOutcome> {
+  if (!config.GEMINI_API_KEY) return { ok: false, reason: "no_key" };
+  if (candidates.length === 0) return { ok: true, decisions: [] };
 
   const indexed = candidates.map((c, i) => ({ index: i, kind: c.kind, ...c.payload }));
   const userText = `Judge the following ${candidates.length} candidate(s). Return one decision per index.\n\n${JSON.stringify(indexed, null, 2)}`;
@@ -140,20 +145,27 @@ export async function judgeCandidates(
     });
   } catch (e: any) {
     log.warn({ err: e?.message }, "Gemini fetch failed");
-    return null;
+    return { ok: false, reason: "fetch_failed" };
   }
 
   if (!res.ok) {
     const text = await res.text().catch(() => "<no body>");
+    if (res.status === 429) {
+      log.warn(
+        { status: 429, body: text.slice(0, 200) },
+        "Gemini quota exhausted (429) — skipping AI gate this cycle",
+      );
+      return { ok: false, reason: "rate_limited" };
+    }
     log.warn({ status: res.status, body: text.slice(0, 400) }, "Gemini judge HTTP error");
-    return null;
+    return { ok: false, reason: "http_error" };
   }
 
   const json: any = await res.json().catch(() => null);
   const raw = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!raw) {
     log.warn({ json }, "Gemini judge: empty response");
-    return null;
+    return { ok: false, reason: "invalid_json" };
   }
 
   let parsed: { decisions?: JudgeDecision[] };
@@ -161,7 +173,7 @@ export async function judgeCandidates(
     parsed = JSON.parse(raw);
   } catch (e) {
     log.warn({ raw: raw.slice(0, 400) }, "Gemini judge: invalid JSON");
-    return null;
+    return { ok: false, reason: "invalid_json" };
   }
 
   const decisions = (parsed.decisions ?? []).filter(
@@ -180,5 +192,5 @@ export async function judgeCandidates(
     "Gemini judge complete",
   );
 
-  return decisions;
+  return { ok: true, decisions };
 }

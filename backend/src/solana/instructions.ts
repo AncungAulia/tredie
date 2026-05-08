@@ -54,6 +54,28 @@ function borshString(s: string): Buffer {
   return Buffer.concat([u32LE(bytes.length), bytes]);
 }
 
+/**
+ * Truncate a string to fit within `maxBytes` UTF-8 bytes without splitting
+ * a multi-byte codepoint mid-sequence. JS `.slice(0, n)` is by char count,
+ * which can produce a 64+ byte buffer when input contains emoji or accented
+ * letters — this function clamps by actual byte length.
+ */
+function clampUtf8Bytes(s: string, maxBytes: number): string {
+  let buf = Buffer.from(s, "utf-8");
+  if (buf.length <= maxBytes) return s;
+  buf = buf.subarray(0, maxBytes);
+  // If we cut mid-codepoint, walk back until valid UTF-8.
+  for (let trim = 0; trim < 4 && buf.length > 0; trim++) {
+    try {
+      const decoded = new TextDecoder("utf-8", { fatal: true }).decode(buf);
+      return decoded;
+    } catch {
+      buf = buf.subarray(0, buf.length - 1);
+    }
+  }
+  return "";
+}
+
 /** Metaplex metadata account PDA: [b"metadata", MPL_PROGRAM, mint]. */
 function metadataPda(mint: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
@@ -121,10 +143,11 @@ export async function buildCreateMarketTx(opts: {
   const idBytes = identifierToBytes(identifier);
   const idLen = identifierByteLen(identifier);
 
-  // Clamp to MPL caps. If caller didn't pass name, default to identifier
-  // (prefer human-readable when caller has it).
-  const mplName = (name ?? identifier).slice(0, 32);
-  const mplUri = uri.slice(0, 200);
+  // Clamp to MPL caps by BYTE length (.slice() is char-count and overshoots
+  // when the input contains multi-byte codepoints — emoji, accented letters,
+  // CJK — which makes the SC's MPL CPI fail with "Name too long").
+  const mplName = clampUtf8Bytes(name ?? identifier, 32);
+  const mplUri = clampUtf8Bytes(uri, 200);
 
   const [factory] = factoryPda();
   const [market] = marketPda(identifier);

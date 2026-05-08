@@ -90,8 +90,21 @@ function validateIdentifier(
   }
 }
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __tredieTrendingPollerRunning: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var __tredieTrendingPollerCronRegistered: boolean | undefined;
+}
+
 export class TrendingPoller {
   start() {
+    if (globalThis.__tredieTrendingPollerCronRegistered) {
+      log.debug("TrendingPoller cron already registered (bun --hot reload)");
+      return;
+    }
+    globalThis.__tredieTrendingPollerCronRegistered = true;
+
     this.pollAll().catch((e) => log.error({ err: e }, "Initial poll failed"));
     cron.schedule("*/15 * * * *", () => {
       this.pollAll().catch((e) =>
@@ -102,6 +115,19 @@ export class TrendingPoller {
   }
 
   async pollAll() {
+    if (globalThis.__tredieTrendingPollerRunning) {
+      log.debug("pollAll skipped — previous run still in progress");
+      return;
+    }
+    globalThis.__tredieTrendingPollerRunning = true;
+    try {
+      return await this.pollAllInner();
+    } finally {
+      globalThis.__tredieTrendingPollerRunning = false;
+    }
+  }
+
+  private async pollAllInner() {
     const results = await Promise.allSettled([
       this.collectNarratives(),
       this.collectTokens(),
@@ -270,13 +296,32 @@ export class TrendingPoller {
       payload: c.payloadForAI,
     }));
 
-    const decisions = await judgeCandidates(judgeInputs);
+    const result = await judgeCandidates(judgeInputs);
 
-    if (!decisions) {
-      log.warn("Gemini judge unavailable, falling back to rule-based spawn");
+    if (!result.ok) {
+      // For rate limit / transient API issues, do NOT fallback to legacy:
+      // legacy rule-based path is permissive and would spam-spawn everything
+      // above a threshold, defeating the AI gating purpose. Just defer to
+      // next cycle; dedup window keeps these candidates fresh.
+      if (
+        result.reason === "rate_limited" ||
+        result.reason === "http_error" ||
+        result.reason === "fetch_failed" ||
+        result.reason === "invalid_json"
+      ) {
+        log.warn(
+          { reason: result.reason, candidates: candidates.length },
+          "Gemini gate failed — skipping cycle, will retry on next poll",
+        );
+        return;
+      }
+      // reason === "no_key" means AI gating intentionally disabled — use
+      // the rule-based legacy path as a graceful degradation.
+      log.info("AI gating disabled (no GEMINI_API_KEY) — using legacy spawn");
       await this.legacySpawn(candidates);
       return;
     }
+    const decisions = result.decisions;
 
     // Index decisions by candidate index for O(1) lookup.
     const byIndex = new Map<number, JudgeDecision>();
