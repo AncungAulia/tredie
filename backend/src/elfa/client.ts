@@ -187,11 +187,19 @@ export async function getKeywordMentions(
 }
 
 // ── Trend identifier normalization ───────────────────────────────────────
-// On-chain identifier is [u8; 32]. Trend markets use prefix `trend:` + slug.
+// On-chain identifier is [u8; 32]. Trend markets use prefix `t:` + short slug.
+// Total length capped at 10 BYTES so the SC's identifier→symbol derivation
+// fits Metaplex's symbol cap (10 bytes) without needing SC changes.
 // Free-form phrase ("Chinese Baddies", "AI Agents") → slug, then prefix.
+//
+// LEGACY_TREND_PREFIX (`trend:`) is still recognized for backward compatibility
+// with markets created before the MPL CPI was added — those markets stay
+// functional (no metadata account but otherwise normal).
 
-const TREND_PREFIX = "trend:";
-const MAX_IDENTIFIER_BYTES = 32;
+const TREND_PREFIX = "t:";
+const LEGACY_TREND_PREFIX = "trend:";
+const MAX_IDENTIFIER_BYTES = 10;
+const MAX_LEGACY_IDENTIFIER_BYTES = 32;
 
 /** Slugify a phrase: lowercase, strip non-alphanumeric, collapse to dash. */
 function slugify(phrase: string): string {
@@ -205,11 +213,15 @@ function slugify(phrase: string): string {
 
 /**
  * Normalize an arbitrary trend phrase to the on-chain identifier convention.
- * Truncates aggressively to fit 32 UTF-8 bytes — keeps readability by snapping
- * to the last word boundary rather than mid-word.
- *   "Chinese Baddies"                            → "trend:chinese-baddies"
- *   "Anthropic partners with SpaceX to boost..." → "trend:anthropic-partners-with"
- *   "Bitcoin price surge to $82,302"             → "trend:bitcoin-price-surge-to"
+ * Truncates to fit 10 UTF-8 bytes total ("t:" + 8 char slug), snapping at the
+ * last dash boundary when possible.
+ *   "Chinese Baddies"                            → "t:chinese"
+ *   "Anthropic partners with SpaceX to boost..." → "t:anthropi"
+ *   "BTC ETF approval"                           → "t:btc-etf"
+ *
+ * Backend's AI judge (Gemini) usually outputs better slugs by picking the
+ * meme's identity rather than a literal sentence prefix — this function is
+ * the rule-based fallback when AI gating is disabled.
  */
 export function normalizeTrendId(phrase: string): string | null {
   const slug = slugify(phrase);
@@ -223,33 +235,37 @@ export function normalizeTrendId(phrase: string): string | null {
     return `${TREND_PREFIX}${slug}`;
   }
 
-  // Need to truncate. Take first maxSlugBytes bytes, then snap back to the
-  // last dash boundary so we don't cut a word mid-stream. If the last dash is
-  // suspiciously early (slug becomes single-word stump), keep the byte cut as-is.
   let truncated = slug.slice(0, maxSlugBytes);
-  // Watch out for multi-byte chars at the boundary: re-validate length
   while (Buffer.byteLength(truncated, "utf-8") > maxSlugBytes) {
     truncated = truncated.slice(0, -1);
   }
   const lastDash = truncated.lastIndexOf("-");
-  if (lastDash >= Math.floor(maxSlugBytes / 2)) {
+  // Snap to dash boundary only if it leaves a meaningful slug (>=3 chars).
+  if (lastDash >= 3) {
     truncated = truncated.slice(0, lastDash);
   }
-  // Final guard: strip trailing dash if any
   truncated = truncated.replace(/-+$/, "");
   if (!truncated) return null;
 
   return `${TREND_PREFIX}${truncated}`;
 }
 
-/** Reverse: extract the keyword from a trend identifier. */
+/** Reverse: extract the keyword from a trend identifier (handles legacy prefix). */
 export function trendIdToKeyword(identifier: string): string | null {
-  if (!identifier.startsWith(TREND_PREFIX)) return null;
-  return identifier.slice(TREND_PREFIX.length).replace(/-/g, " ");
+  if (identifier.startsWith(TREND_PREFIX)) {
+    return identifier.slice(TREND_PREFIX.length).replace(/-/g, " ");
+  }
+  if (identifier.startsWith(LEGACY_TREND_PREFIX)) {
+    return identifier.slice(LEGACY_TREND_PREFIX.length).replace(/-/g, " ");
+  }
+  return null;
 }
 
 export function isTrendId(identifier: string): boolean {
-  return identifier.startsWith(TREND_PREFIX);
+  return (
+    identifier.startsWith(TREND_PREFIX) ||
+    identifier.startsWith(LEGACY_TREND_PREFIX)
+  );
 }
 
 // ── Mindshare proxy helpers ──────────────────────────────────────────────

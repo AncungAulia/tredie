@@ -290,7 +290,7 @@ export const openApiSpec = {
       Market: {
         type: "object",
         properties: {
-          identifier: { type: "string", example: "trend:chinese-baddies" },
+          identifier: { type: "string", example: "t:cnbadd" },
           pda: { type: "string" },
           mint: { type: "string" },
           asset_class: { type: "integer", minimum: 0, maximum: 6 },
@@ -343,7 +343,7 @@ export const openApiSpec = {
         type: "object",
         required: ["identifier"],
         properties: {
-          identifier: { type: "string", maxLength: 32, example: "trend:rising-narrative" },
+          identifier: { type: "string", maxLength: 32, example: "t:trend123" },
           assetClass: { type: "integer", minimum: 0, maximum: 6, default: 0 },
           source: { type: "string", enum: ["user_search", "user_link_paste", "auto_spawn"], default: "user_search" },
           sourceMetadata: { type: "object", additionalProperties: true },

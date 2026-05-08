@@ -74,6 +74,17 @@ function buildConditions(market: db.MarketRow): object | null {
 }
 
 export async function createHypeWatcher(market: db.MarketRow): Promise<string | null> {
+  // Elfa Auto requires HTTPS webhook URL. In local dev BACKEND_URL=http://localhost,
+  // so Auto subscription will fail with EQL_INVALID_ACTION. local-hype-detector
+  // handles surge detection in dev — skip Auto subscription silently here.
+  if (!config.BACKEND_URL.startsWith("https://")) {
+    log.debug(
+      { identifier: market.identifier, backendUrl: config.BACKEND_URL },
+      "BACKEND_URL not HTTPS — skipping Elfa Auto subscription (local-hype-detector handles surges in dev)",
+    );
+    return null;
+  }
+
   // Skip CA with overly long identifier (Auto symbol length cap)
   if (market.asset_class === 5 && market.identifier.length > 20) {
     log.debug({ identifier: market.identifier }, "Skipping Auto query for long CA");

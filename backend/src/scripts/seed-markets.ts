@@ -16,11 +16,12 @@ const SEEDS = [
   { identifier: "xyz:XAU", assetClass: 3, displayName: "Gold" },
   { identifier: "xyz:CL", assetClass: 3, displayName: "Crude Oil" },
   { identifier: "xyz:DXY", assetClass: 4, displayName: "DXY" },
-  // Trend/meme markets (asset_class 6) — tokenize attention itself
-  { identifier: "trend:chinese-baddies", assetClass: 6, displayName: "Chinese Baddies" },
-  { identifier: "trend:ai-agents", assetClass: 6, displayName: "AI Agents" },
-  { identifier: "trend:labubu", assetClass: 6, displayName: "Labubu" },
-  { identifier: "trend:ozempic", assetClass: 6, displayName: "Ozempic" },
+  // Trend/meme markets (asset_class 6) — tokenize attention itself.
+  // Identifier format: "t:<slug>" capped at 10 bytes total (MPL symbol cap).
+  { identifier: "t:cnbadd", assetClass: 6, displayName: "Chinese Baddies" },
+  { identifier: "t:aiagent", assetClass: 6, displayName: "AI Agents" },
+  { identifier: "t:labubu", assetClass: 6, displayName: "Labubu" },
+  { identifier: "t:ozempic", assetClass: 6, displayName: "Ozempic" },
 ];
 
 for (const s of SEEDS) {

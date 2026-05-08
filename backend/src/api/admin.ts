@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { trendingPoller } from "../services/trending-poller";
 import { oracleUpdater } from "../services/oracle-updater";
 import { localHypeDetector } from "../services/local-hype-detector";
+import { marketSpawner } from "../services/market-spawner";
+import * as db from "../db";
 import { log } from "../utils/log";
 
 export const adminRoutes = new Hono();
@@ -66,4 +68,63 @@ adminRoutes.post("/force-hype", async (c) => {
     log.error({ err: e, identifier }, "force-hype failed");
     return c.json({ error: e.message }, 500);
   }
+});
+
+// List recent AI-judged candidates. Filter via ?verdict=spawn|skip|merge|...
+adminRoutes.get("/candidates", async (c) => {
+  const verdict = c.req.query("verdict") as
+    | db.MarketCandidateRow["verdict"]
+    | undefined;
+  const limit = Number(c.req.query("limit") ?? "100");
+  const rows = await db.listMarketCandidates({ verdict, limit });
+  return c.json({
+    count: rows.length,
+    candidates: rows.map((r) => ({
+      ...r,
+      id: r.id.toString(),
+      created_at: r.created_at.toString(),
+      decided_at: r.decided_at?.toString() ?? null,
+    })),
+  });
+});
+
+// Manual override: force-spawn a previously-skipped candidate. Useful when
+// the AI was too conservative or you want to demo a specific narrative.
+adminRoutes.post("/candidates/:id/approve", async (c) => {
+  const id = BigInt(c.req.param("id"));
+  const cand = await db.getMarketCandidate(id);
+  if (!cand) return c.json({ error: "candidate not found" }, 404);
+  if (!cand.ai_identifier || cand.ai_asset_class === null) {
+    return c.json({ error: "candidate has no AI identifier or asset_class" }, 400);
+  }
+
+  const existing = await db.getMarketByIdentifier(cand.ai_identifier);
+  if (existing) {
+    await db.updateCandidateVerdict(id, "manual_approve", existing.pda);
+    return c.json({ ok: true, alreadyExists: true, market: existing });
+  }
+
+  try {
+    const market = await marketSpawner.ensureMarket({
+      identifier: cand.ai_identifier,
+      assetClass: cand.ai_asset_class,
+      source: "auto_spawn",
+      displayName: cand.ai_display_name ?? null,
+    });
+    await db.updateCandidateVerdict(id, "manual_approve", market.pda);
+    return c.json({ ok: true, market });
+  } catch (e: any) {
+    log.error({ err: e, id: id.toString() }, "Manual approve spawn failed");
+    return c.json({ ok: false, error: e.message }, 500);
+  }
+});
+
+// Manual reject: mark a pending/skip candidate as permanently rejected
+// (so dedup window keeps re-judging from being attempted).
+adminRoutes.post("/candidates/:id/reject", async (c) => {
+  const id = BigInt(c.req.param("id"));
+  const cand = await db.getMarketCandidate(id);
+  if (!cand) return c.json({ error: "candidate not found" }, 404);
+  await db.updateCandidateVerdict(id, "manual_reject");
+  return c.json({ ok: true });
 });

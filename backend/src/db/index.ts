@@ -102,6 +102,37 @@ export interface AutoQueryRow {
   error_reason: string | null;
 }
 
+export interface MarketCandidateRow {
+  id: bigint;
+  source_kind:
+    | "narrative"
+    | "token"
+    | "ca_twitter"
+    | "ca_telegram"
+    | "user_search"
+    | "user_link_paste";
+  source_key: string;
+  raw_input: unknown;
+  verdict:
+    | "pending"
+    | "spawn"
+    | "skip"
+    | "merge"
+    | "manual_approve"
+    | "manual_reject"
+    | "spawn_failed";
+  ai_identifier: string | null;
+  ai_display_name: string | null;
+  ai_asset_class: number | null;
+  ai_confidence_bps: number | null;
+  ai_reason: string | null;
+  ai_model: string | null;
+  merged_with: string | null;
+  spawn_market_pda: string | null;
+  created_at: bigint;
+  decided_at: bigint | null;
+}
+
 export interface LinkCacheRow {
   url: string;
   platform: string;
@@ -423,6 +454,103 @@ export async function markAutoEventProcessed(eventId: string, outcome: string) {
     UPDATE auto_events SET processed_at = ${BigInt(Date.now())}, outcome = ${outcome}
     WHERE event_id = ${eventId}
   `;
+}
+
+// ── Market candidates (AI gating audit log) ──────────────────────────────
+
+/**
+ * Lookup a recent decision for the same raw input within `withinMs`.
+ * Lets the poller skip re-judging the same narrative/token every cycle.
+ */
+export async function getRecentCandidateDecision(
+  sourceKind: MarketCandidateRow["source_kind"],
+  sourceKey: string,
+  withinMs: number,
+): Promise<MarketCandidateRow | undefined> {
+  const cutoff = BigInt(Date.now() - withinMs);
+  const [row] = await sql<MarketCandidateRow[]>`
+    SELECT * FROM market_candidates
+    WHERE source_kind = ${sourceKind}
+      AND source_key = ${sourceKey}
+      AND created_at >= ${cutoff}
+    ORDER BY created_at DESC LIMIT 1
+  `;
+  return row;
+}
+
+export async function insertMarketCandidate(c: {
+  source_kind: MarketCandidateRow["source_kind"];
+  source_key: string;
+  raw_input: unknown;
+  verdict: MarketCandidateRow["verdict"];
+  ai_identifier?: string | null;
+  ai_display_name?: string | null;
+  ai_asset_class?: number | null;
+  ai_confidence_bps?: number | null;
+  ai_reason?: string | null;
+  ai_model?: string | null;
+  merged_with?: string | null;
+  spawn_market_pda?: string | null;
+  decided_at?: bigint | null;
+}): Promise<bigint> {
+  const now = BigInt(Date.now());
+  const [row] = await sql<{ id: bigint }[]>`
+    INSERT INTO market_candidates ${sql({
+      source_kind: c.source_kind,
+      source_key: c.source_key,
+      raw_input: c.raw_input as any,
+      verdict: c.verdict,
+      ai_identifier: c.ai_identifier ?? null,
+      ai_display_name: c.ai_display_name ?? null,
+      ai_asset_class: c.ai_asset_class ?? null,
+      ai_confidence_bps: c.ai_confidence_bps ?? null,
+      ai_reason: c.ai_reason?.slice(0, 500) ?? null,
+      ai_model: c.ai_model ?? null,
+      merged_with: c.merged_with ?? null,
+      spawn_market_pda: c.spawn_market_pda ?? null,
+      created_at: now,
+      decided_at: c.decided_at ?? now,
+    } as any)}
+    RETURNING id
+  `;
+  return row.id;
+}
+
+export async function updateCandidateVerdict(
+  id: bigint,
+  verdict: MarketCandidateRow["verdict"],
+  spawnMarketPda?: string | null,
+) {
+  await sql`
+    UPDATE market_candidates
+    SET verdict = ${verdict},
+        spawn_market_pda = COALESCE(${spawnMarketPda ?? null}, spawn_market_pda),
+        decided_at = ${BigInt(Date.now())}
+    WHERE id = ${id}
+  `;
+}
+
+export async function listMarketCandidates(opts: {
+  verdict?: MarketCandidateRow["verdict"];
+  limit?: number;
+}) {
+  const limit = opts.limit ?? 100;
+  if (opts.verdict) {
+    return sql<MarketCandidateRow[]>`
+      SELECT * FROM market_candidates WHERE verdict = ${opts.verdict}
+      ORDER BY created_at DESC LIMIT ${limit}
+    `;
+  }
+  return sql<MarketCandidateRow[]>`
+    SELECT * FROM market_candidates ORDER BY created_at DESC LIMIT ${limit}
+  `;
+}
+
+export async function getMarketCandidate(id: bigint) {
+  const [row] = await sql<MarketCandidateRow[]>`
+    SELECT * FROM market_candidates WHERE id = ${id}
+  `;
+  return row;
 }
 
 // ── Link cache ───────────────────────────────────────────────────────────

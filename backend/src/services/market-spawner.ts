@@ -120,6 +120,10 @@ export class MarketSpawner {
       baseVirtualSol: DEFAULT_BASE_VIRTUAL_SOL,
       virtualTokenSupply: DEFAULT_VIRTUAL_TOKEN_SUPPLY,
       elasticityBps: DEFAULT_ELASTICITY_BPS,
+      // MPL Token Metadata params (post-989ab3f). Use display_name if provided
+      // (more human-readable), else fall back to identifier.
+      name: params.displayName ?? identifier,
+      uri: "",
     });
 
     const sig = await sendAndConfirm(tx, [mintKeypair]);

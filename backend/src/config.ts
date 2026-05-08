@@ -28,6 +28,11 @@ const envSchema = z.object({
   AUTO_SPAWN_THRESHOLD_PCT: z.string().default("0.05").transform(Number),
   CA_SPAWN_THRESHOLD: z.string().default("10").transform(Number),
   HYPE_EVENT_PREMIUM_BPS: z.string().default("500").transform(Number),
+
+  GEMINI_API_KEY: z.string().default(""),
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
+  AI_GATING_ENABLED: z.string().default("true").transform((v) => v === "true"),
+  AI_MIN_CONFIDENCE_BPS: z.string().default("4000").transform(Number),
 });
 
 const parsed = envSchema.safeParse(process.env);

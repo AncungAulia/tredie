@@ -23,6 +23,11 @@ import {
   programId,
 } from "./pda";
 
+// Canonical MPL Token Metadata program (mainnet + devnet stable address).
+export const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey(
+  "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s",
+);
+
 function disc(name: string): Buffer {
   return createHash("sha256").update(`global:${name}`).digest().subarray(0, 8);
 }
@@ -41,6 +46,20 @@ function u64LE(n: bigint): Buffer {
   const b = Buffer.alloc(8);
   b.writeBigUInt64LE(n);
   return b;
+}
+
+/** Borsh String layout: u32 LE byte-length + UTF-8 bytes. */
+function borshString(s: string): Buffer {
+  const bytes = Buffer.from(s, "utf-8");
+  return Buffer.concat([u32LE(bytes.length), bytes]);
+}
+
+/** Metaplex metadata account PDA: [b"metadata", MPL_PROGRAM, mint]. */
+function metadataPda(mint: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("metadata"), MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(), mint.toBuffer()],
+    MPL_TOKEN_METADATA_PROGRAM_ID,
+  )[0];
 }
 
 // ── init_factory(fee_basis_points: u16) ──────────────────────────────────
@@ -69,6 +88,11 @@ export async function buildInitFactoryTx(opts: {
 }
 
 // ── create_market ────────────────────────────────────────────────────────
+// Post-989ab3f: program performs a CPI to MPL Token Metadata using `name` and
+// `uri` provided here. The on-chain side derives the SPL `symbol` from the
+// identifier UTF-8 bytes, so for trend markets with long slugs the CPI may
+// fail with SymbolTooLong (MPL caps symbol at 10). Caller is responsible for
+// keeping the symbol portion ≤10 bytes if metadata creation is required.
 export async function buildCreateMarketTx(opts: {
   identifier: string;
   assetClass: number;
@@ -77,6 +101,10 @@ export async function buildCreateMarketTx(opts: {
   baseVirtualSol?: bigint;
   virtualTokenSupply?: bigint;
   elasticityBps?: number;
+  /** Metaplex `name` field. Capped at 32 chars by MPL. Defaults to identifier. */
+  name?: string;
+  /** Metaplex `uri` field. Capped at 200 chars. Defaults to "". */
+  uri?: string;
 }): Promise<Transaction> {
   const {
     identifier,
@@ -86,14 +114,22 @@ export async function buildCreateMarketTx(opts: {
     baseVirtualSol = 30_000_000_000n,
     virtualTokenSupply = 1_000_000_000_000_000n,
     elasticityBps = 5000,
+    name,
+    uri = "",
   } = opts;
 
   const idBytes = identifierToBytes(identifier);
   const idLen = identifierByteLen(identifier);
 
+  // Clamp to MPL caps. If caller didn't pass name, default to identifier
+  // (prefer human-readable when caller has it).
+  const mplName = (name ?? identifier).slice(0, 32);
+  const mplUri = uri.slice(0, 200);
+
   const [factory] = factoryPda();
   const [market] = marketPda(identifier);
   const [oracle] = oraclePda(market);
+  const metadataAcc = metadataPda(mintKeypairPubkey);
 
   const data = Buffer.concat([
     disc("create_market"),
@@ -103,6 +139,8 @@ export async function buildCreateMarketTx(opts: {
     u64LE(baseVirtualSol),
     u64LE(virtualTokenSupply),
     u32LE(elasticityBps),
+    borshString(mplName),
+    borshString(mplUri),
   ]);
 
   const ix = new TransactionInstruction({
@@ -114,6 +152,8 @@ export async function buildCreateMarketTx(opts: {
       { pubkey: oracle, isSigner: false, isWritable: true },
       { pubkey: signer.publicKey, isSigner: true, isWritable: true },
       { pubkey: oracleAuthority, isSigner: false, isWritable: false },
+      { pubkey: metadataAcc, isSigner: false, isWritable: true },
+      { pubkey: MPL_TOKEN_METADATA_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
       { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false },

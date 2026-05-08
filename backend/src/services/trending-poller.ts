@@ -5,6 +5,9 @@ import { config } from "../config";
 import { log } from "../utils/log";
 import { marketSpawner } from "./market-spawner";
 import { metadataEnricher } from "./metadata-enricher";
+import { judgeCandidates, JudgeCandidate, JudgeDecision } from "../ai/gemini-judge";
+
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // re-judge same input only after 1h
 
 function detectAssetClass(symbol: string): number {
   if (symbol.startsWith("xyz:")) {
@@ -14,6 +17,77 @@ function detectAssetClass(symbol: string): number {
     return 2;
   }
   return 0;
+}
+
+interface CandidateSummary {
+  sourceKind: "narrative" | "token" | "ca_twitter" | "ca_telegram";
+  sourceKey: string;
+  /** Stored verbatim in market_candidates.raw_input (audit trail). */
+  rawInput: Record<string, unknown>;
+  /** Compact payload sent to Gemini — keep below ~10 fields per candidate. */
+  payloadForAI: Record<string, unknown>;
+  /** Used when AI gating is disabled or the judge returns null. */
+  fallback: {
+    identifier: string;
+    assetClass: number;
+    displayName?: string | null;
+    imageUrl?: string | null;
+    sourceUrl?: string | null;
+    sourceMetadata?: object | null;
+    shouldSpawnByRule: boolean;
+  };
+}
+
+/**
+ * Sanity-check + normalize the AI-decided identifier before we use it as
+ * an on-chain seed. Returns null if invalid (caller falls back to skip).
+ *
+ * On-chain caps that drive these rules:
+ * - PDA seed limit: 32 UTF-8 bytes
+ * - MPL Token Metadata symbol cap: 10 bytes (the SC derives symbol = identifier
+ *   UTF-8 verbatim, so identifier itself must fit MPL's cap for asset classes
+ *   that go through the MPL CPI path).
+ */
+const MPL_SYMBOL_CAP_BYTES = 10;
+
+function validateIdentifier(
+  identifier: string,
+  assetClass: number,
+): string | null {
+  if (!identifier) return null;
+  const trimmed = identifier.trim();
+  if (Buffer.byteLength(trimmed, "utf8") > 32) return null;
+
+  switch (assetClass) {
+    case 0:
+    case 1:
+      // crypto/dex tickers — uppercase short code, capped to MPL symbol limit
+      if (!/^[A-Z0-9]{2,10}$/.test(trimmed)) return null;
+      return trimmed;
+    case 2:
+    case 3:
+    case 4: {
+      if (!trimmed.startsWith("xyz:")) return null;
+      const upper = trimmed.toUpperCase().replace(/^XYZ:/, "xyz:");
+      if (Buffer.byteLength(upper, "utf8") > MPL_SYMBOL_CAP_BYTES) return null;
+      return upper;
+    }
+    case 5:
+      // Solana CA: base58 32–44 chars. All exceed MPL's 10-byte cap so the
+      // MPL CPI in create_market will fail until the SC patches symbol
+      // truncation. Caller should not send CAs here for now.
+      if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(trimmed)) return null;
+      return trimmed;
+    case 6: {
+      if (!trimmed.startsWith("t:")) return null;
+      const slug = trimmed.slice("t:".length);
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return null;
+      if (Buffer.byteLength(trimmed, "utf8") > MPL_SYMBOL_CAP_BYTES) return null;
+      return trimmed;
+    }
+    default:
+      return null;
+  }
 }
 
 export class TrendingPoller {
@@ -28,61 +102,75 @@ export class TrendingPoller {
   }
 
   async pollAll() {
-    await Promise.allSettled([
-      this.pollNarratives(),
-      this.pollTokens(),
-      this.pollCAs("twitter"),
-      this.pollCAs("telegram"),
+    const results = await Promise.allSettled([
+      this.collectNarratives(),
+      this.collectTokens(),
+      this.collectCAs("twitter"),
+      this.collectCAs("telegram"),
     ]);
-  }
+    const candidates = results.flatMap((r) =>
+      r.status === "fulfilled" ? r.value : [],
+    );
 
-  /**
-   * Discovery primitive untuk trend markets.
-   * Setiap narrative cluster yang lolos slug + 32-byte check di-spawn sebagai
-   * `trend:<slug>` market dengan asset_class=6.
-   */
-  async pollNarratives() {
-    const res = await elfa.getTrendingNarratives("day", 10);
-    let spawnedCount = 0;
+    if (candidates.length === 0) {
+      log.info("No spawn candidates this cycle");
+      return;
+    }
 
-    for (const item of res.narratives) {
-      const trendId = elfa.normalizeTrendId(item.narrative);
-      if (!trendId) {
-        log.debug({ narrative: item.narrative }, "Narrative skipped (slug too long)");
-        continue;
-      }
-
-      const existing = await db.getMarketByIdentifier(trendId);
-      if (existing) continue;
-
-      // Spawn market — trend markets gak punya threshold, semua narrative
-      // yang muncul di top-10 hari itu langsung di-tokenize.
-      marketSpawner
-        .ensureMarket({
-          identifier: trendId,
-          assetClass: 6,
-          source: "auto_spawn",
-          displayName: item.narrative,
-          sourceUrl: item.source_links?.[0] ?? null,
-          sourceMetadata: { tweetIds: item.tweet_ids?.slice(0, 5) },
-        })
-        .catch((e) =>
-          log.warn({ err: e, narrative: item.narrative }, "Trend spawn failed"),
-        );
-      spawnedCount++;
+    // Deduplicate: skip candidates already judged within the dedup window
+    // (avoids re-spending Gemini quota on the same trend every 15 min).
+    const fresh: CandidateSummary[] = [];
+    for (const c of candidates) {
+      const recent = await db.getRecentCandidateDecision(
+        c.sourceKind,
+        c.sourceKey,
+        DEDUP_WINDOW_MS,
+      );
+      if (!recent) fresh.push(c);
     }
 
     log.info(
-      { totalNarratives: res.narratives.length, spawnAttempts: spawnedCount },
-      "Trending narratives polled",
+      { total: candidates.length, fresh: fresh.length },
+      "Candidates collected",
     );
+
+    if (fresh.length === 0) return;
+
+    if (config.AI_GATING_ENABLED && config.GEMINI_API_KEY) {
+      await this.aiGate(fresh);
+    } else {
+      await this.legacySpawn(fresh);
+    }
   }
 
-  async pollTokens() {
+  // ── Collectors ─────────────────────────────────────────────────────────
+
+  async collectNarratives(): Promise<CandidateSummary[]> {
+    const res = await elfa.getTrendingNarratives("day", 10);
+    return res.narratives.map((item) => ({
+      sourceKind: "narrative" as const,
+      sourceKey: item.narrative.slice(0, 200),
+      rawInput: item as unknown as Record<string, unknown>,
+      payloadForAI: {
+        narrative: item.narrative,
+        tweet_count: item.tweet_ids?.length ?? 0,
+      },
+      fallback: {
+        identifier: elfa.normalizeTrendId(item.narrative) ?? "",
+        assetClass: 6,
+        displayName: item.narrative,
+        sourceUrl: item.source_links?.[0] ?? null,
+        sourceMetadata: { tweetIds: item.tweet_ids?.slice(0, 5) },
+        shouldSpawnByRule: !!elfa.normalizeTrendId(item.narrative),
+      },
+    }));
+  }
+
+  async collectTokens(): Promise<CandidateSummary[]> {
     const tokens = await elfa.getTrendingTokens("1h", 50);
+    const out: CandidateSummary[] = [];
     for (const [idx, token] of tokens.entries()) {
-      // Elfa returns lowercase ("btc"), we normalize to uppercase to match
-      // seeded identifiers (BTC) and avoid duplicate market spawns.
+      // Elfa returns lowercase; we normalize to uppercase.
       const sym = token.token.toUpperCase();
       const mindshareBps = elfa.tokenMindshareBps(token, tokens);
       const mindsharePct = mindshareBps / 100;
@@ -95,34 +183,38 @@ export class TrendingPoller {
         fetched_at: BigInt(Date.now()),
       });
 
-      if (mindsharePct > config.AUTO_SPAWN_THRESHOLD_PCT) {
-        const existing = await db.getMarketByIdentifier(sym);
-        if (!existing) {
-          marketSpawner
-            .ensureMarket({
-              identifier: sym,
-              assetClass: detectAssetClass(sym),
-              source: "auto_spawn",
-            })
-            .catch((e) =>
-              log.warn({ err: e, symbol: sym }, "Auto-spawn failed"),
-            );
-        }
-      }
+      out.push({
+        sourceKind: "token" as const,
+        sourceKey: sym,
+        rawInput: token as unknown as Record<string, unknown>,
+        payloadForAI: {
+          symbol: sym,
+          mention_count: token.current_count,
+          previous_count: token.previous_count,
+          change_percent: token.change_percent,
+          rank: idx + 1,
+        },
+        fallback: {
+          identifier: sym,
+          assetClass: detectAssetClass(sym),
+          shouldSpawnByRule: mindsharePct > config.AUTO_SPAWN_THRESHOLD_PCT,
+        },
+      });
     }
-    log.info({ count: tokens.length }, "Trending tokens polled");
+    log.debug({ count: tokens.length }, "Trending tokens collected");
+    return out;
   }
 
-  async pollCAs(platform: "twitter" | "telegram") {
+  async collectCAs(
+    platform: "twitter" | "telegram",
+  ): Promise<CandidateSummary[]> {
     const cas =
       platform === "twitter"
         ? await elfa.getTrendingCAsTwitter("1h")
         : await elfa.getTrendingCAsTelegram("1h");
+    const out: CandidateSummary[] = [];
 
     for (const [idx, ca] of cas.entries()) {
-      // Only spawn Solana-chain CAs (smart contract is on Solana)
-      const isSolana = ca.chain === "solana";
-
       await db.upsertTrendingCA({
         contract_address: ca.contractAddress,
         source_platform: platform,
@@ -131,30 +223,241 @@ export class TrendingPoller {
         fetched_at: BigInt(Date.now()),
       });
 
+      const isSolana = ca.chain === "solana";
       if (isSolana) metadataEnricher.fetch(ca.contractAddress).catch(() => {});
 
-      if (isSolana && ca.mentionCount > config.CA_SPAWN_THRESHOLD) {
-        const existing = await db.getMarketByIdentifier(ca.contractAddress);
-        if (!existing) {
-          const meta = await db.getTokenMetadata(ca.contractAddress);
-          marketSpawner
-            .ensureMarket({
-              identifier: ca.contractAddress,
-              assetClass: 5,
-              source: "auto_spawn",
-              displayName: meta?.symbol ?? meta?.name ?? null,
-              imageUrl: meta?.image_url ?? null,
-            })
-            .catch((e) =>
-              log.warn(
-                { err: e, ca: ca.contractAddress },
-                "CA spawn failed",
-              ),
-            );
-        }
+      // Only Solana CAs are spawnable on-chain.
+      if (!isSolana) continue;
+
+      // On-chain identifier seed is capped at 32 UTF-8 bytes — Solana CAs
+      // are 32–44 chars so we filter long ones upfront to save Gemini quota
+      // (validateIdentifier would reject them anyway).
+      if (Buffer.byteLength(ca.contractAddress, "utf8") > 32) continue;
+
+      const meta = await db.getTokenMetadata(ca.contractAddress);
+      out.push({
+        sourceKind: platform === "twitter" ? "ca_twitter" : "ca_telegram",
+        sourceKey: ca.contractAddress,
+        rawInput: ca as unknown as Record<string, unknown>,
+        payloadForAI: {
+          contract_address: ca.contractAddress,
+          chain: ca.chain,
+          mention_count: ca.mentionCount,
+          platform,
+          symbol: meta?.symbol ?? null,
+          name: meta?.name ?? null,
+        },
+        fallback: {
+          identifier: ca.contractAddress,
+          assetClass: 5,
+          displayName: meta?.symbol ?? meta?.name ?? null,
+          imageUrl: meta?.image_url ?? null,
+          shouldSpawnByRule: ca.mentionCount > config.CA_SPAWN_THRESHOLD,
+        },
+      });
+    }
+    log.debug({ platform, count: cas.length }, "Trending CAs collected");
+    return out;
+  }
+
+  // ── AI gating path ─────────────────────────────────────────────────────
+
+  private async aiGate(candidates: CandidateSummary[]) {
+    const judgeInputs: JudgeCandidate[] = candidates.map((c) => ({
+      kind: c.sourceKind === "ca_twitter" || c.sourceKind === "ca_telegram"
+        ? c.sourceKind
+        : (c.sourceKind as JudgeCandidate["kind"]),
+      payload: c.payloadForAI,
+    }));
+
+    const decisions = await judgeCandidates(judgeInputs);
+
+    if (!decisions) {
+      log.warn("Gemini judge unavailable, falling back to rule-based spawn");
+      await this.legacySpawn(candidates);
+      return;
+    }
+
+    // Index decisions by candidate index for O(1) lookup.
+    const byIndex = new Map<number, JudgeDecision>();
+    for (const d of decisions) byIndex.set(d.index, d);
+
+    let spawned = 0;
+    let skipped = 0;
+    let merged = 0;
+    let lowConfidence = 0;
+    let invalidIdent = 0;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      const d = byIndex.get(i);
+
+      if (!d) {
+        // Decision missing — log as pending so we'll retry next cycle.
+        await db.insertMarketCandidate({
+          source_kind: c.sourceKind,
+          source_key: c.sourceKey,
+          raw_input: c.rawInput,
+          verdict: "pending",
+        });
+        continue;
+      }
+
+      const baseRow = {
+        source_kind: c.sourceKind,
+        source_key: c.sourceKey,
+        raw_input: c.rawInput,
+        ai_identifier: d.identifier,
+        ai_display_name: d.display_name,
+        ai_asset_class: d.asset_class,
+        ai_confidence_bps: d.confidence_bps,
+        ai_reason: d.reason,
+        ai_model: config.GEMINI_MODEL,
+      };
+
+      if (d.verdict === "skip") {
+        skipped++;
+        await db.insertMarketCandidate({ ...baseRow, verdict: "skip" });
+        continue;
+      }
+
+      if (d.verdict === "merge") {
+        merged++;
+        const mergedWith =
+          typeof d.merged_with_index === "number"
+            ? candidates[d.merged_with_index]?.sourceKey ?? null
+            : null;
+        await db.insertMarketCandidate({
+          ...baseRow,
+          verdict: "merge",
+          merged_with: mergedWith,
+        });
+        continue;
+      }
+
+      // verdict === "spawn"
+      if (d.confidence_bps < config.AI_MIN_CONFIDENCE_BPS) {
+        lowConfidence++;
+        await db.insertMarketCandidate({
+          ...baseRow,
+          verdict: "skip",
+          ai_reason: `low_confidence: ${d.reason}`,
+        });
+        continue;
+      }
+
+      const validIdent = validateIdentifier(d.identifier, d.asset_class);
+      if (!validIdent) {
+        invalidIdent++;
+        log.warn(
+          { ident: d.identifier, assetClass: d.asset_class, sourceKey: c.sourceKey },
+          "AI returned invalid identifier — skipping",
+        );
+        await db.insertMarketCandidate({
+          ...baseRow,
+          verdict: "skip",
+          ai_reason: `invalid_identifier: ${d.reason}`,
+        });
+        continue;
+      }
+
+      // Skip if a market with this identifier already exists.
+      const existing = await db.getMarketByIdentifier(validIdent);
+      if (existing) {
+        await db.insertMarketCandidate({
+          ...baseRow,
+          verdict: "merge",
+          merged_with: validIdent,
+          spawn_market_pda: existing.pda,
+        });
+        merged++;
+        continue;
+      }
+
+      const candidateId = await db.insertMarketCandidate({
+        ...baseRow,
+        verdict: "spawn",
+        ai_identifier: validIdent,
+      });
+
+      try {
+        const market = await marketSpawner.ensureMarket({
+          identifier: validIdent,
+          assetClass: d.asset_class,
+          source: "auto_spawn",
+          displayName: d.display_name ?? c.fallback.displayName ?? null,
+          imageUrl: c.fallback.imageUrl ?? null,
+          sourceUrl: c.fallback.sourceUrl ?? null,
+          sourceMetadata: c.fallback.sourceMetadata ?? null,
+        });
+        await db.updateCandidateVerdict(candidateId, "spawn", market.pda);
+        spawned++;
+      } catch (e: any) {
+        await db.updateCandidateVerdict(candidateId, "spawn_failed");
+        log.warn(
+          { err: e?.message, ident: validIdent },
+          "AI-approved spawn failed",
+        );
       }
     }
-    log.info({ platform, count: cas.length }, "Trending CAs polled");
+
+    log.info(
+      { spawned, skipped, merged, lowConfidence, invalidIdent },
+      "AI gating cycle complete",
+    );
+  }
+
+  // ── Legacy rule-based path (fallback when Gemini disabled or down) ─────
+
+  private async legacySpawn(candidates: CandidateSummary[]) {
+    let spawned = 0;
+    for (const c of candidates) {
+      if (!c.fallback.shouldSpawnByRule || !c.fallback.identifier) {
+        await db.insertMarketCandidate({
+          source_kind: c.sourceKind,
+          source_key: c.sourceKey,
+          raw_input: c.rawInput,
+          verdict: "skip",
+          ai_reason: "below_threshold (legacy path)",
+        });
+        continue;
+      }
+
+      const existing = await db.getMarketByIdentifier(c.fallback.identifier);
+      if (existing) continue;
+
+      const candidateId = await db.insertMarketCandidate({
+        source_kind: c.sourceKind,
+        source_key: c.sourceKey,
+        raw_input: c.rawInput,
+        verdict: "spawn",
+        ai_identifier: c.fallback.identifier,
+        ai_display_name: c.fallback.displayName ?? null,
+        ai_asset_class: c.fallback.assetClass,
+        ai_reason: "rule_based (legacy path)",
+      });
+
+      try {
+        const market = await marketSpawner.ensureMarket({
+          identifier: c.fallback.identifier,
+          assetClass: c.fallback.assetClass,
+          source: "auto_spawn",
+          displayName: c.fallback.displayName ?? null,
+          imageUrl: c.fallback.imageUrl ?? null,
+          sourceUrl: c.fallback.sourceUrl ?? null,
+          sourceMetadata: c.fallback.sourceMetadata ?? null,
+        });
+        await db.updateCandidateVerdict(candidateId, "spawn", market.pda);
+        spawned++;
+      } catch (e: any) {
+        await db.updateCandidateVerdict(candidateId, "spawn_failed");
+        log.warn(
+          { err: e?.message, ident: c.fallback.identifier },
+          "Legacy spawn failed",
+        );
+      }
+    }
+    log.info({ spawned, total: candidates.length }, "Legacy spawn cycle complete");
   }
 }
 
