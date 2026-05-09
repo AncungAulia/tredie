@@ -1,6 +1,10 @@
 "use client";
 import React, { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { Drawer } from "vaul";
 import { useTradeAction } from "@/hooks/useTradeAction";
+import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { useWallets } from "@privy-io/react-auth/solana";
 import { usePrivy, useLogin } from "@privy-io/react-auth";
 import { useMarketDetail } from "@/hooks/useMarketDetail";
 import { useOHLC } from "@/hooks/useOHLC";
@@ -68,9 +72,12 @@ export default function TokenDetail({ id }: { id: string }) {
   const [timeRange, setTimeRange] = useState<TimeRange>("24H");
   const [chartType, setChartType] = useState<ChartType>("line");
   const [copied, setCopied] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const { execute, status, error, reset } = useTradeAction();
   const { authenticated } = usePrivy();
   const { login } = useLogin();
+  const { wallets } = useWallets();
+  const walletAddress = wallets[0]?.address;
 
   useEffect(() => {
     if (status === "success") {
@@ -78,6 +85,9 @@ export default function TokenDetail({ id }: { id: string }) {
       return () => clearTimeout(t);
     }
   }, [status, reset]);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const interval = RANGE_TO_INTERVAL[timeRange];
   const { data: market, isLoading: loadingMarket } = useMarketDetail(identifier);
@@ -90,6 +100,10 @@ export default function TokenDetail({ id }: { id: string }) {
     : 0;
 
   const tokensMinted = market ? Number(market.tokens_minted) : 0;
+
+  const { solBalance, tokenBalance } = useWalletBalance(walletAddress, market?.mint);
+  const solBalanceSol = solBalance / 1e9;
+  const tokenBalanceUi = Number(tokenBalance) / 1e6;
 
   const chartColor = "#9C93E8";
 
@@ -177,7 +191,7 @@ export default function TokenDetail({ id }: { id: string }) {
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-3xl sm:text-4xl font-bold text-white font-sans leading-tight truncate">
+            <h1 className="text-lg sm:text-2xl font-bold text-white font-sans leading-tight truncate">
               {label}
             </h1>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-white/40 text-xs">
@@ -205,7 +219,7 @@ export default function TokenDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="flex items-start justify-between shrink-0 lg:w-[340px]">
+          <div className="flex items-start justify-between shrink-0 md:w-[340px]">
             <div className="flex flex-col">
               <span className="text-white font-mono font-bold text-base leading-snug">
                 {formatVolume(market.stats.volume_24h_lamports)} SOL
@@ -232,7 +246,7 @@ export default function TokenDetail({ id }: { id: string }) {
       </div>
 
       {/* Two-column layout */}
-      <div className="flex flex-col lg:flex-row gap-6">
+      <div className="flex flex-col md:flex-row gap-6">
         {/* Left column */}
         <div className="flex-1 min-w-0 flex flex-col gap-6">
           {/* Chart */}
@@ -364,10 +378,10 @@ export default function TokenDetail({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Right column: Trading panel */}
-        <div className="w-full lg:w-[340px] shrink-0">
+        {/* Right column: Trading panel — desktop only */}
+        <div className="hidden md:block w-[340px] shrink-0">
           <div
-            className="border border-white/[0.08] rounded-xl p-5 flex flex-col gap-4 lg:sticky lg:top-20"
+            className="border border-white/[0.08] rounded-xl p-5 flex flex-col gap-4 md:sticky md:top-20"
             style={{ background: "#000" }}
           >
             <div className="flex gap-5">
@@ -393,7 +407,13 @@ export default function TokenDetail({ id }: { id: string }) {
 
             <div className="flex items-center justify-between text-xs text-white/35">
               <span>Balance:</span>
-              <span className="font-mono">— SOL</span>
+              <span className="font-mono">
+                {authenticated
+                  ? tradeType === "buy"
+                    ? `${solBalanceSol.toFixed(4)} SOL`
+                    : `${tokenBalanceUi.toFixed(2)} ${ticker}`
+                  : "— SOL"}
+              </span>
             </div>
 
             <div
@@ -477,6 +497,135 @@ export default function TokenDetail({ id }: { id: string }) {
           </div>
         </div>
       </div>
+
+      {/* Mobile: buy button — portal ke body, bypass transform stacking context */}
+      {mounted && createPortal(
+        <div className="md:hidden fixed bottom-16 inset-x-0 z-40 px-4 pb-3 pt-4 bg-gradient-to-t from-[#09090B] to-transparent">
+          <button
+            onClick={() => { setTradeType("buy"); setSheetOpen(true); }}
+            className="w-full h-12 rounded-xl font-bold text-sm bg-[#00FF47] text-black active:brightness-90 transition-all"
+          >
+            Buy {ticker}
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Mobile: vaul Drawer — portal ke body secara internal */}
+      <Drawer.Root open={sheetOpen} onOpenChange={setSheetOpen} shouldScaleBackground={false}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" />
+          <Drawer.Content
+            className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl outline-none flex flex-col"
+            style={{ background: "#0a0a0b", borderTop: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-white/20 rounded-full" />
+            </div>
+
+            <div className="px-5 pb-10 flex flex-col gap-4">
+              <h3 className="text-white font-bold text-base text-center py-2">
+                Trade {label}
+              </h3>
+
+              <div className="flex gap-5">
+                {(["buy", "sell"] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setTradeType(type)}
+                    className={`h-[26px] overflow-hidden group transition-colors cursor-pointer capitalize ${
+                      tradeType === type
+                        ? type === "buy"
+                          ? "text-[#00FF47] border-b-2 border-[#00FF47]"
+                          : "text-[#EF4444] border-b-2 border-[#EF4444]"
+                        : "text-white/35"
+                    }`}
+                  >
+                    <div className="flex flex-col text-base font-bold group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
+                      <span className="block pb-0.5">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                      <span className="block pb-0.5" aria-hidden="true">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-white/35">
+                <span>Balance:</span>
+                <span className="font-mono">— SOL</span>
+              </div>
+
+              <div
+                className="flex items-center gap-2 border rounded-lg px-3 focus-within:border-white/30 transition-colors"
+                style={{ borderColor: "rgba(255,255,255,0.12)" }}
+              >
+                <input
+                  type="number"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="flex-1 bg-transparent py-3 text-white font-mono text-base outline-none placeholder-white/20 min-w-0"
+                />
+                <span className="text-white/40 text-sm font-mono shrink-0">
+                  {tradeType === "buy" ? "SOL" : ticker}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2">
+                {[25, 50, 75, 100].map((pct) => (
+                  <button
+                    key={pct}
+                    onClick={() => setAmount((pct * 0.001).toFixed(4))}
+                    className="h-8 text-white/45 bg-white/[0.05] hover:bg-white/[0.09] rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between py-1 text-sm">
+                <span className="text-white/60 font-mono">{estimatedOutput}</span>
+                <span className="text-white/30 text-xs">estimated</span>
+              </div>
+
+              {error && <p className="text-[#EF4444] text-xs text-center">{error}</p>}
+
+              {!authenticated ? (
+                <button
+                  onClick={() => login()}
+                  className="w-full h-[50px] rounded-xl font-bold text-sm bg-white/10 text-white hover:bg-white/15 transition-all cursor-pointer border border-white/10"
+                >
+                  Connect Wallet
+                </button>
+              ) : (
+                <button
+                  disabled={status === "preparing" || status === "signing" || status === "success"}
+                  onClick={() => {
+                    if (tradeType === "buy") {
+                      execute({ identifier, side: "buy", solAmount: parsedAmount || 0.01 });
+                    } else {
+                      execute({ identifier, side: "sell", tokenAmount: String(Math.floor(parsedAmount * TOKEN_DECIMALS)) });
+                    }
+                  }}
+                  className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed ${
+                    status === "success"
+                      ? "bg-white/10 text-white/60"
+                      : tradeType === "buy"
+                        ? "bg-[#00FF47] text-black hover:brightness-110"
+                        : "bg-[#EF4444] text-black hover:brightness-110"
+                  }`}
+                >
+                  <div className={`flex flex-col transition-transform duration-300 ease-out ${status === "success" ? "-translate-y-1/2" : ""}`}>
+                    <span className="flex items-center justify-center h-[50px]">
+                      {status === "preparing" ? "Preparing..." : status === "signing" ? "Signing..." : `${tradeType === "buy" ? "Buy" : "Sell"} ${ticker}`}
+                    </span>
+                    <span className="flex items-center justify-center h-[50px]" aria-hidden="true">Success</span>
+                  </div>
+                </button>
+              )}
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }
