@@ -22,7 +22,18 @@ const envSchema = z.object({
   ELFA_API_BASE: z.string().url().default("https://api.elfa.ai"),
   ELFA_AUTO_WEBHOOK_SECRET: z.string().default(""),
 
-  FRONTEND_URL: z.string().default("http://localhost:3000"),
+  // Comma-separated list of allowed CORS origins. Supports dev + prod
+  // simultaneously, e.g. "http://localhost:3000,https://tredie.vercel.app".
+  // Leading/trailing whitespace per entry is trimmed.
+  FRONTEND_URL: z
+    .string()
+    .default("http://localhost:3000")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
   BACKEND_URL: z.string().default("http://localhost:4000"),
 
   AUTO_SPAWN_THRESHOLD_PCT: z.string().default("0.05").transform(Number),
