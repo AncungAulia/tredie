@@ -349,6 +349,12 @@ export const openApiSpec = {
           trade_count_24h: { type: "string" },
           holders_count: { type: "string", description: "Distinct trader count (lifetime)" },
           sparkline_24h: { type: "array", items: { type: "integer" }, description: "Hourly avg current_mindshare_bps for last 24h" },
+          market_cap_sparkline_24h: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Hourly market_cap (lamports as bigint string) for last 24h. Empty array if no trades in window. Use for homepage card mini-charts.",
+          },
           spot_price_lamports: { type: "number", description: "Lamports per token base unit (current AMM spot)" },
           market_cap_lamports: { type: "string", description: "spot_price × tokens_minted (circulating supply value)" },
           fdv_lamports: { type: "string", description: "spot_price × virtual_token_supply (fully diluted)" },

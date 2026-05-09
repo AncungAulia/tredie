@@ -166,6 +166,12 @@ interface EnrichedMarketRow extends MarketRow {
   sparkline_24h: number[];         // hourly avg current_mindshare_bps, oldest first
                                     // Empty array if `sparkline=false` or no history
 
+  // Market-cap sparkline derived from trades (hourly buckets last 24h).
+  // Each value: spot_price_at_bucket × cumulative_tokens_minted_at_bucket.
+  // Use this for homepage card mini-charts. Empty array means zero trades
+  // in the 24h window (FE: hide chart or render flat line at current mcap).
+  market_cap_sparkline_24h: string[];   // bigint strings, oldest first
+
   // Token economics derived from AMM curve state
   spot_price_lamports: number;     // (base_virtual_sol + real_sol_reserves) /
                                     // (virtual_token_supply - tokens_minted)

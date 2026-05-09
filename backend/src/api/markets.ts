@@ -134,7 +134,7 @@ marketsRoutes.get("/", async (c) => {
     const cutoffSec = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
     const cutoffMs = BigInt(Date.now() - 24 * 3600_000);
 
-    const [vol24h, holders, sparkRows] = await Promise.all([
+    const [vol24h, holders, sparkRows, mcapRows] = await Promise.all([
       sql<{ market_pda: string; volume: bigint; trade_count: bigint }[]>`
         SELECT market_pda,
                COALESCE(SUM(sol_amount), 0)::bigint AS volume,
@@ -161,6 +161,50 @@ marketsRoutes.get("/", async (c) => {
             ORDER BY market_pda, bucket ASC
           `
         : Promise.resolve([] as any[]),
+      // Market-cap sparkline: hourly buckets last 24h. For each bucket, last
+      // trade's effective price × cumulative tokens_minted at bucket end.
+      // Markets with zero trades in window get an empty array client-side.
+      includeSparkline
+        ? sql<{
+            market_pda: string;
+            bucket: bigint;
+            cum_tokens: bigint;
+            close_price: number;
+          }[]>`
+            WITH baseline AS (
+              SELECT
+                m.pda AS market_pda,
+                m.tokens_minted::bigint - COALESCE(
+                  (SELECT SUM(CASE WHEN t.side = 0 THEN t.token_amount ELSE -t.token_amount END)::bigint
+                   FROM trades t
+                   WHERE t.market_pda = m.pda AND t.block_time > ${cutoffSec}), 0
+                ) AS baseline_tokens
+              FROM markets m
+              WHERE m.pda = ANY(${pdas as any})
+            ),
+            hourly AS (
+              SELECT
+                market_pda,
+                ((block_time / 3600) * 3600)::bigint AS bucket,
+                SUM(CASE WHEN side = 0 THEN token_amount ELSE -token_amount END)::bigint AS net_delta,
+                (ARRAY_AGG(sol_amount   ORDER BY block_time DESC))[1] AS last_sol,
+                (ARRAY_AGG(token_amount ORDER BY block_time DESC))[1] AS last_tokens
+              FROM trades
+              WHERE market_pda = ANY(${pdas as any}) AND block_time > ${cutoffSec}
+              GROUP BY market_pda, bucket
+            )
+            SELECT
+              h.market_pda,
+              h.bucket,
+              (b.baseline_tokens + SUM(h.net_delta) OVER (
+                PARTITION BY h.market_pda ORDER BY h.bucket
+              ))::bigint AS cum_tokens,
+              (h.last_sol::numeric / NULLIF(h.last_tokens, 0)::numeric)::float AS close_price
+            FROM hourly h
+            JOIN baseline b ON b.market_pda = h.market_pda
+            ORDER BY h.market_pda, h.bucket ASC
+          `
+        : Promise.resolve([] as any[]),
     ]);
 
     const volMap = new Map(vol24h.map((v) => [v.market_pda, v]));
@@ -171,13 +215,24 @@ marketsRoutes.get("/", async (c) => {
       arr.push(r.bps);
       sparkMap.set(r.market_pda, arr);
     }
+    // mcap = close_price (lamports/token) × cum_tokens (token base units) → lamports
+    const mcapMap = new Map<string, bigint[]>();
+    for (const r of mcapRows) {
+      const mcap = BigInt(Math.floor(r.close_price * Number(r.cum_tokens)));
+      const arr = mcapMap.get(r.market_pda) ?? [];
+      arr.push(mcap);
+      mcapMap.set(r.market_pda, arr);
+    }
 
     for (const m of enriched) {
       const v = volMap.get(m.pda);
       m.volume_24h_lamports = v?.volume ?? 0n;
       m.trade_count_24h = v?.trade_count ?? 0n;
       m.holders_count = holdersMap.get(m.pda) ?? 0n;
-      if (includeSparkline) m.sparkline_24h = sparkMap.get(m.pda) ?? [];
+      if (includeSparkline) {
+        m.sparkline_24h = sparkMap.get(m.pda) ?? [];
+        m.market_cap_sparkline_24h = mcapMap.get(m.pda) ?? [];
+      }
 
       // Token economics derived from AMM state — free since we already have the row
       const econ = computeMarketEconomics(m as db.MarketRow);
