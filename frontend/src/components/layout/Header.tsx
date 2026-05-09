@@ -6,29 +6,44 @@ import ConnectButton from "./ConnectButton";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const navLinks = [
+  { href: "/topics", label: "Topics" },
+  { href: "/tokens", label: "Tokens" },
+  { href: "/portfolio", label: "Portfolio" },
+];
+
 export default function Header() {
   const pathname = usePathname();
 
-  const navLinks = [
-    { href: "/trends", label: "Trends" },
-    { href: "/tokens", label: "Tokens" },
-    { href: "/portfolio", label: "Portfolio" },
-  ];
+  const activeIndex = navLinks.findIndex(
+    (l) => pathname === l.href || pathname.startsWith(l.href + "/")
+  );
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#09090B]/80 backdrop-blur-md border-b border-white/[0.05] flex items-center px-8 lg:px-12 gap-8">
       <Logo />
 
-      {/* Nav links */}
-      <nav className="hidden md:flex items-center gap-1 ml-4">
-        {navLinks.map((link) => (
+      {/* Nav tabs with sliding pill */}
+      <nav className="relative hidden md:flex ml-4 p-1 bg-white/[0.04] rounded-full border border-white/[0.07]">
+        {/* Sliding pill — width = 1/3 of inner area, translateX(100%) = tepat satu tab */}
+        <span
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+          style={{
+            left: "0.25rem",
+            width: "calc((100% - 0.5rem) / 3)",
+            transform: `translateX(${(activeIndex >= 0 ? activeIndex : 0) * 100}%)`,
+            opacity: activeIndex >= 0 ? 1 : 0,
+          }}
+        />
+        {navLinks.map((link, i) => (
           <Link
             key={link.href}
             href={link.href}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-              pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))
-                ? "bg-[rgba(156,147,232,0.12)] text-[#9C93E8]"
-                : "text-white/50 hover:text-white hover:bg-white/[0.04]"
+            className={`relative z-10 w-24 text-center py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors duration-300 ${
+              activeIndex === i
+                ? "text-[#9C93E8]"
+                : "text-white/50 hover:text-white"
             }`}
           >
             {link.label}
