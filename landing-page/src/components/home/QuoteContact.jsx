@@ -121,7 +121,7 @@ const QuoteContact = () => {
               What is everyone talking about?
             </p>
             <p className="text-[1.3vw] font-medium text-center leading-[1.3]">
-              Search any topic or paste a link from social media. We will find you a market to trade.
+              Every time the internet fixates on something, a market opens automatically. The markets are already live — just pick one and trade.
             </p>
 
             <div className="w-fit mx-auto flex items-center gap-[1vw]">

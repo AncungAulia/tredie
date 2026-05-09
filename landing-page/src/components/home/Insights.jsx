@@ -17,7 +17,7 @@ const Insights = () => {
   const baseRotateX = 5;
   const baseRotateY = -5;
 
-  const mids = ["300+", "5", "<5s", "30", "1.2K"];
+  const mids = ["300+", "7", "<5s", "30", "1.2K"];
 
   const heading = [
     "Markets Live",
@@ -29,9 +29,9 @@ const Insights = () => {
 
   const content = [
     "Crypto, equities, commodities, FX, and contract addresses — all on-chain.",
-    "Price moves purely on supply and demand. Buy early, sell the hype.",
+    "Price follows attention. The louder the internet gets about something, the higher the floor — permanently.",
     "Email or wallet. Embedded or external. Trade in under 5 seconds.",
-    "Devnet live. Fully audited bonding curve AMM on Solana.",
+    "Live on Solana devnet. Early access. The mechanics are real.",
     "Mindshare data from Elfa AI powers every market discovery.",
   ];
 

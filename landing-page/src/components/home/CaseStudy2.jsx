@@ -27,10 +27,10 @@ const CaseStudy2 = () => {
     },
     {
       ticker: 'AAPL',
-      assetClass: 'Stock',
+      assetClass: 'Attention Market',
       marketType: 'Trending Event',
       network: 'Solana',
-      quote: `"Apple's keynote was trending everywhere. I watched it live, opened Tredie right after, and bought. The price moved fast. No complicated steps, no waiting."`,
+      quote: `"Apple's keynote was everywhere. I watched it live, opened Tredie the moment attention peaked, and got in. Price moved fast. No waiting, no guesswork."`,
       image: "/assets/img/party-2.jpeg",
     },
   ]
