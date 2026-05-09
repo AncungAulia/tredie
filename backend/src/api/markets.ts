@@ -253,7 +253,7 @@ marketsRoutes.get("/:identifier", async (c) => {
 
   const cutoffSec = BigInt(Math.floor(Date.now() / 1000) - 24 * 3600);
 
-  const [history, trades, vol, holders] = await Promise.all([
+  const [history, trades, vol, holdersCount, topHolders] = await Promise.all([
     db.getMindshareHistory(market.pda, 200),
     db.getRecentTrades(market.pda, 50),
     sql<{ volume: bigint; trade_count: bigint }[]>`
@@ -266,6 +266,19 @@ marketsRoutes.get("/:identifier", async (c) => {
       SELECT COUNT(DISTINCT trader)::bigint AS holders
       FROM trades WHERE market_pda = ${market.pda}
     `,
+    sql<{ trader: string; tokens_bought: bigint; tokens_sold: bigint; net_tokens: bigint }[]>`
+      SELECT
+        trader,
+        SUM(CASE WHEN side = 0 THEN token_amount ELSE 0 END)::bigint AS tokens_bought,
+        SUM(CASE WHEN side = 1 THEN token_amount ELSE 0 END)::bigint AS tokens_sold,
+        SUM(CASE WHEN side = 0 THEN token_amount ELSE -token_amount END)::bigint AS net_tokens
+      FROM trades
+      WHERE market_pda = ${market.pda}
+      GROUP BY trader
+      HAVING SUM(CASE WHEN side = 0 THEN token_amount ELSE -token_amount END) > 0
+      ORDER BY net_tokens DESC
+      LIMIT 50
+    `,
   ]);
 
   // autoEvents = subset of mindshareHistory tagged as auto_event surges,
@@ -274,16 +287,30 @@ marketsRoutes.get("/:identifier", async (c) => {
 
   const econ = computeMarketEconomics(market);
 
+  // Compute share % per holder relative to current circulating supply
+  const tokensMinted = BigInt(market.tokens_minted);
+  const holdersWithShare = topHolders.map((h, i) => ({
+    rank: i + 1,
+    trader: h.trader,
+    net_tokens: h.net_tokens,
+    tokens_bought: h.tokens_bought,
+    tokens_sold: h.tokens_sold,
+    share_bps: tokensMinted > 0n
+      ? Number((h.net_tokens * 10_000n) / tokensMinted)
+      : 0,
+  }));
+
   return c.json(
     jsonSafe({
       market,
       mindshareHistory: history,
       recentTrades: trades,
       autoEvents,
+      holders: holdersWithShare,
       stats: {
         volume_24h_lamports: vol[0]?.volume ?? 0n,
         trade_count_24h: vol[0]?.trade_count ?? 0n,
-        holders_count: holders[0]?.holders ?? 0n,
+        holders_count: holdersCount[0]?.holders ?? 0n,
         spot_price_lamports_per_token: econ.spot_price_lamports,
         market_cap_lamports: econ.market_cap_lamports,
         fdv_lamports: econ.fdv_lamports,
@@ -332,12 +359,12 @@ marketsRoutes.get("/:identifier/oracle", async (c) => {
 
 // Derived OHLC candles dari trades. Fallback ke mindshare_history kalau gak ada trade.
 const ohlcSchema = z.object({
-  interval: z.enum(["5m", "15m", "1h", "4h", "1d"]).default("1h"),
-  limit: z.coerce.number().int().min(1).max(500).default(100),
+  interval: z.enum(["5m", "10m", "15m", "1h", "4h", "1d"]).default("1h"),
+  limit: z.coerce.number().int().min(1).max(500).default(200),
 });
 
 const INTERVAL_SECONDS: Record<string, number> = {
-  "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400,
+  "5m": 300, "10m": 600, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400,
 };
 
 marketsRoutes.get("/:identifier/ohlc", async (c) => {

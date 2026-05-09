@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTradeAction } from "@/hooks/useTradeAction";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useWallets } from "@privy-io/react-auth/solana";
@@ -13,27 +14,38 @@ import Link from "next/link";
 import TradingViewChart from "@/components/chart/TradingViewChart";
 import type { OHLCInterval } from "@/types/api";
 
-type TimeRange = "1H" | "6H" | "24H" | "1W" | "1M" | "ALL";
+type TimeRange = "24H" | "1W" | "1M" | "ALL";
 type ChartType = "line" | "candle";
 
-const TIME_RANGES: TimeRange[] = ["1H", "6H", "24H", "1W", "1M", "ALL"];
+const TIME_RANGES: TimeRange[] = ["24H", "1W", "1M", "ALL"];
 
 const RANGE_TO_INTERVAL: Record<TimeRange, OHLCInterval> = {
-  "1H": "5m",
-  "6H": "15m",
-  "24H": "1h",
-  "1W": "4h",
-  "1M": "1d",
+  "24H": "5m",
+  "1W": "1h",
+  "1M": "4h",
   "ALL": "1d",
 };
 
+const RANGE_LIMIT: Record<TimeRange, number> = {
+  "24H": 300,
+  "1W": 200,
+  "1M": 200,
+  "ALL": 400,
+};
+
 const RANGE_LOOKBACK_SEC: Record<TimeRange, number> = {
-  "1H": 3600,
-  "6H": 6 * 3600,
   "24H": 24 * 3600,
   "1W": 7 * 24 * 3600,
   "1M": 30 * 24 * 3600,
   "ALL": 365 * 24 * 3600,
+};
+
+// Step per titik di chart (time-based, bukan trade-based)
+const CHART_STEP_SEC: Record<TimeRange, number> = {
+  "24H": 10 * 60,  // 10 menit
+  "1W": 30 * 60,   // 30 menit
+  "1M": 2 * 3600,  // 2 jam
+  "ALL": 6 * 3600, // 6 jam
 };
 
 
@@ -45,14 +57,14 @@ function formatSol(lamports: number): string {
   return sol.toFixed(3);
 }
 
-function formatSpotPrice(lamportsPerToken: number): string {
-  const sol = lamportsPerToken / 1e9;
-  if (sol === 0) return "0";
-  if (sol >= 0.01) return sol.toFixed(4);
-  if (sol >= 0.0001) return sol.toFixed(6);
-  if (sol >= 0.000001) return sol.toFixed(8);
-  // Avoid scientific notation for very small prices
-  return sol.toFixed(20).replace(/\.?0+$/, "") || "0";
+function formatPrice(solPerToken: number): string {
+  if (solPerToken <= 0) return "0";
+  if (solPerToken >= 1) return solPerToken.toFixed(3);
+  if (solPerToken >= 0.001) return solPerToken.toFixed(5);
+  // Hitung desimal berdasarkan magnitude → tampilkan 3 angka signifikan
+  const exp = Math.floor(Math.log10(solPerToken));
+  const decimals = Math.min(-exp + 2, 12);
+  return solPerToken.toFixed(decimals).replace(/\.?0+$/, "") || "0";
 }
 
 function formatVolume(lamports: string): string {
@@ -73,25 +85,42 @@ export default function TokenDetail({ id }: { id: string }) {
   const [chartType, setChartType] = useState<ChartType>("line");
   const [copied, setCopied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const queryClient = useQueryClient();
   const { execute, status, error, reset } = useTradeAction();
   const { authenticated } = usePrivy();
   const { login } = useLogin();
   const { wallets } = useWallets();
   const walletAddress = wallets[0]?.address;
 
-  useEffect(() => {
-    if (status === "success") {
-      const t = setTimeout(reset, 2000);
-      return () => clearTimeout(t);
-    }
-  }, [status, reset]);
+  const interval = RANGE_TO_INTERVAL[timeRange];
+  const limit = RANGE_LIMIT[timeRange];
+  const { data: market, isLoading: loadingMarket } = useMarketDetail(identifier);
+  const { data: ohlcData, isLoading: loadingOHLC } = useOHLC(identifier, interval, limit);
+  const { solBalance, tokenBalance } = useWalletBalance(walletAddress, market?.mint);
+  const solBalanceSol = solBalance / 1e9;
+  const tokenBalanceUi = Number(tokenBalance) / 1e6;
 
-  const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const interval = RANGE_TO_INTERVAL[timeRange];
-  const { data: market, isLoading: loadingMarket } = useMarketDetail(identifier);
-  const { data: ohlcData, isLoading: loadingOHLC } = useOHLC(identifier, interval);
+  useEffect(() => {
+    if (status === "success") {
+      queryClient.invalidateQueries({ queryKey: ["market", identifier] });
+      queryClient.invalidateQueries({ queryKey: ["balance", "sol", walletAddress] });
+      queryClient.invalidateQueries({ queryKey: ["balance", "token", walletAddress, market?.mint] });
+
+      const t1 = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["ohlc", identifier] });
+        queryClient.invalidateQueries({ queryKey: ["market", identifier] });
+      }, 4000);
+
+      const t2 = setTimeout(reset, 2000);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [status, reset, queryClient, identifier, walletAddress, market?.mint]);
 
   const spotPrice = market
     ? ((Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
@@ -101,27 +130,50 @@ export default function TokenDetail({ id }: { id: string }) {
 
   const tokensMinted = market ? Number(market.tokens_minted) : 0;
 
-  const { solBalance, tokenBalance } = useWalletBalance(walletAddress, market?.mint);
-  const solBalanceSol = solBalance / 1e9;
-  const tokenBalanceUi = Number(tokenBalance) / 1e6;
-
   const chartColor = "#9C93E8";
 
+  // Harga token dalam SOL per 1 token (human-readable, bukan raw)
+  // spotPrice = lamports/raw_token / 1e9 = SOL per raw token
+  // SOL per human token = SOL per raw token × 1e6  (1 token = 1e6 raw)
+  const pricePerToken = spotPrice * 1e6;
+
   const lineData = useMemo(() => {
-    if (!ohlcData?.candles?.length) {
-      const mcap = spotPrice * tokensMinted;
-      const now = Math.floor(Date.now() / 1000);
-      const lookback = RANGE_LOOKBACK_SEC[timeRange];
-      return [
-        { time: now - lookback, value: mcap },
-        { time: now, value: mcap },
-      ];
+    const candles = ohlcData?.candles ?? [];
+    const now = Math.floor(Date.now() / 1000);
+    const lookback = RANGE_LOOKBACK_SEC[timeRange];
+    const step = CHART_STEP_SEC[timeRange];
+    const windowStart = now - lookback;
+
+    // Sort candles ascending, filter ke dalam window saja
+    const sorted = [...candles]
+      .map((c) => ({
+        time: Number(c.bucket ?? c.time),
+        price: Number(c.close) / 1000,
+      }))
+      .filter((c) => c.time >= windowStart)
+      .sort((a, b) => a.time - b.time);
+
+    // Mulai dari candle pertama yang ada (bukan dari windowStart),
+    // sehingga market baru yang baru 1 jam trading tetap keliatan volatile
+    // meskipun time range-nya 24H.
+    const from = sorted.length > 0
+      ? Math.floor(sorted[0].time / step) * step
+      : Math.floor(windowStart / step) * step;
+
+    const result: { time: number; value: number }[] = [];
+    let lastPrice = pricePerToken;
+    let ci = 0;
+
+    for (let t = from; t <= now; t += step) {
+      while (ci < sorted.length && sorted[ci].time <= t) {
+        lastPrice = sorted[ci].price;
+        ci++;
+      }
+      result.push({ time: t, value: lastPrice });
     }
-    return ohlcData.candles.map((c) => ({
-      time: Number(c.bucket ?? c.time),
-      value: (Number(c.close) * tokensMinted) / 1e9,
-    }));
-  }, [ohlcData, spotPrice, tokensMinted, timeRange]);
+
+    return result;
+  }, [ohlcData, pricePerToken, timeRange]);
 
   const candleData = useMemo(() => {
     if (!ohlcData?.candles?.length) return [];
@@ -134,8 +186,6 @@ export default function TokenDetail({ id }: { id: string }) {
     }));
   }, [ohlcData]);
 
-  const lastPrice = lineData[lineData.length - 1]?.value ?? 0;
-
   const mindshare = market ? market.current_mindshare_bps / 100 : 0;
   const ratchet = market ? market.ratchet_multiplier_bps / 10_000 : 0;
   const priceDeltaBps = market?.stats?.price_change_24h_bps ?? 0;
@@ -147,10 +197,13 @@ export default function TokenDetail({ id }: { id: string }) {
   const TOKEN_DECIMALS = 1e6;
   const parsedAmount = parseFloat(amount || "0");
   // buy: amount is SOL → estimate tokens out; sell: amount is tokens → estimate SOL out
-  const estimatedOutput = spotPrice > 0
+  // pricePerToken = SOL per human token (bukan per raw token)
+  // buy:  SOL ÷ (SOL/token) = token
+  // sell: token × (SOL/token) = SOL
+  const estimatedOutput = pricePerToken > 0
     ? tradeType === "buy"
-      ? `${(parsedAmount / spotPrice).toFixed(2)} ${ticker}`
-      : `${(parsedAmount * spotPrice).toFixed(6)} SOL`
+      ? `${(parsedAmount / pricePerToken).toFixed(2)} ${ticker}`
+      : `${(parsedAmount * pricePerToken).toFixed(4)} SOL`
     : "—";
 
   function handleCopy() {
@@ -203,19 +256,6 @@ export default function TokenDetail({ id }: { id: string }) {
                 <Copy size={10} />
               </button>
               {copied && <span className="text-[#9C93E8] text-[10px]">Copied!</span>}
-              <span>•</span>
-              <span className="text-white/50">Bonding curve</span>
-              <div className="flex items-center gap-1.5">
-                <div className="w-14 h-1 bg-white/10 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${Math.min(mindshare, 100)}%`, backgroundColor: "#9C93E8" }}
-                  />
-                </div>
-                <span className="text-[11px] font-mono font-semibold text-[#9C93E8]">
-                  {mindshare.toFixed(1)}%
-                </span>
-              </div>
             </div>
           </div>
 
@@ -259,7 +299,6 @@ export default function TokenDetail({ id }: { id: string }) {
                 candleData={candleData}
                 chartType={chartType}
                 color={chartColor}
-                lastPrice={lastPrice}
               />
             )}
           </div>
@@ -301,7 +340,7 @@ export default function TokenDetail({ id }: { id: string }) {
           {/* Stats row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Spot Price", value: `${formatSol(market.stats.spot_price_lamports_per_token)}` },
+              { label: "Spot Price", value: `${formatPrice(pricePerToken)} SOL` },
               { label: "24h Volume", value: `${formatVolume(market.stats.volume_24h_lamports)} SOL` },
               { label: "Mindshare", value: `${mindshare.toFixed(1)}%` },
               { label: "Holders", value: Number(market.stats?.holders_count ?? 0).toLocaleString() },
@@ -314,17 +353,6 @@ export default function TokenDetail({ id }: { id: string }) {
                 <span className="font-mono text-sm text-white">{value}</span>
               </div>
             ))}
-          </div>
-
-          {/* Ratchet status */}
-          <div className="flex items-center justify-between bg-[rgba(156,147,232,0.07)] border border-[rgba(156,147,232,0.15)] rounded-xl px-4 py-3">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-white/40 text-[11px] uppercase tracking-wide">Ratchet Status</span>
-              <span className="text-[#9C93E8] font-semibold text-sm">Price floor boosted</span>
-            </div>
-            <span className="text-[#9C93E8] font-mono font-bold text-sm bg-[rgba(156,147,232,0.15)] px-3 py-1 rounded-md">
-              {ratchet.toFixed(1)}x
-            </span>
           </div>
 
           {/* Trades / Holders tabs */}
@@ -349,31 +377,63 @@ export default function TokenDetail({ id }: { id: string }) {
               ))}
             </div>
 
-            {activeTab === "trades" && market.recent_trades.length > 0 ? (
-              <div className="flex flex-col gap-1">
-                {market.recent_trades.slice(0, 20).map((t) => (
-                  <div
-                    key={t.signature}
-                    className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${t.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
-                        {t.side === 0 ? "BUY" : "SELL"}
-                      </span>
-                      <span className="font-mono text-xs text-white/50">
-                        {t.trader.slice(0, 6)}…{t.trader.slice(-4)}
+            {activeTab === "trades" ? (
+              market.recent_trades.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {market.recent_trades.slice(0, 20).map((t) => (
+                    <div
+                      key={t.signature}
+                      className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${t.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
+                          {t.side === 0 ? "BUY" : "SELL"}
+                        </span>
+                        <span className="font-mono text-xs text-white/50">
+                          {t.trader.slice(0, 6)}…{t.trader.slice(-4)}
+                        </span>
+                      </div>
+                      <span className="font-mono text-xs text-white/70">
+                        {formatSol(Number(t.sol_amount))}
                       </span>
                     </div>
-                    <span className="font-mono text-xs text-white/70">
-                      {formatSol(Number(t.sol_amount))}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="w-full text-center py-10 text-white/30 text-sm border border-white/[0.06] rounded-xl bg-white/[0.015]">
+                  No trades yet.
+                </div>
+              )
             ) : (
-              <div className="w-full text-center py-10 text-white/30 text-sm border border-white/[0.06] rounded-xl bg-white/[0.015]">
-                {activeTab === "holders" ? "No holders data yet." : "No trades yet."}
-              </div>
+              market.holders && market.holders.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  {market.holders.map((h) => (
+                    <div
+                      key={h.trader}
+                      className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-[11px] text-white/30 w-5 text-right">#{h.rank}</span>
+                        <span className="font-mono text-xs text-white/50">
+                          {h.trader.slice(0, 6)}…{h.trader.slice(-4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-xs text-white/30">
+                          {(h.share_bps / 100).toFixed(2)}%
+                        </span>
+                        <span className="font-mono text-xs text-white/70">
+                          {(Number(h.net_tokens) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="w-full text-center py-10 text-white/30 text-sm border border-white/[0.06] rounded-xl bg-white/[0.015]">
+                  No holders yet.
+                </div>
+              )
             )}
           </div>
         </div>
@@ -410,8 +470,8 @@ export default function TokenDetail({ id }: { id: string }) {
               <span className="font-mono">
                 {authenticated
                   ? tradeType === "buy"
-                    ? `${solBalanceSol.toFixed(4)} SOL`
-                    : `${tokenBalanceUi.toFixed(2)} ${ticker}`
+                    ? `${(solBalance / 1e9).toFixed(4)} SOL`
+                    : `${(Number(tokenBalance) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${ticker}`
                   : "— SOL"}
               </span>
             </div>
@@ -436,7 +496,15 @@ export default function TokenDetail({ id }: { id: string }) {
               {[25, 50, 75, 100].map((pct) => (
                 <button
                   key={pct}
-                  onClick={() => setAmount((pct * 0.001).toFixed(4))}
+                  onClick={() => {
+                    if (tradeType === "buy") {
+                      const sol = (solBalance / 1e9) * (pct / 100);
+                      setAmount(sol.toFixed(4));
+                    } else {
+                      const tokens = (Number(tokenBalance) / 1e6) * (pct / 100);
+                      setAmount(tokens.toFixed(2));
+                    }
+                  }}
                   className="h-8 overflow-hidden group text-white/45 bg-white/[0.05] hover:bg-white/[0.09] rounded-lg transition-colors cursor-pointer"
                 >
                   <div className="flex flex-col text-xs font-medium group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">

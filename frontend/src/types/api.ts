@@ -39,9 +39,19 @@ export interface Trade {
   trader: string;
 }
 
+export interface Holder {
+  rank: number;
+  trader: string;
+  net_tokens: string;
+  tokens_bought: string;
+  tokens_sold: string;
+  share_bps: number;
+}
+
 export interface MarketDetail extends Market {
   mindshare_history: MindshareEntry[];
   recent_trades: Trade[];
+  holders: Holder[];
   stats: {
     spot_price_lamports_per_token: number;
     price_change_24h_bps: number;
@@ -61,12 +71,19 @@ export interface OHLCCandle {
   volume: string;
 }
 
+export interface MindsharePoint {
+  bucket: string | number;
+  bps: number;
+}
+
 export interface OHLCResponse {
   interval: string;
   candles: OHLCCandle[];
+  mindshareSeries?: MindsharePoint[];
+  source?: "trades" | "mindshare_history";
 }
 
-export type OHLCInterval = "5m" | "15m" | "1h" | "4h" | "1d";
+export type OHLCInterval = "5m" | "10m" | "15m" | "1h" | "4h" | "1d";
 
 export interface PortfolioPosition {
   market_pda: string;
