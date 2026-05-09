@@ -25,6 +25,15 @@ interface Props {
   color?: string;
 }
 
+type TooltipState = {
+  time: string;
+  price: string;
+  ohlc?: { o: string; h: string; l: string; c: string };
+  x: number;
+  y: number;
+  flipLeft: boolean;
+} | null;
+
 function formatTooltipTime(unix: number): string {
   const d = new Date(unix * 1000);
   return d.toLocaleString("en", {
@@ -36,6 +45,15 @@ function formatTooltipTime(unix: number): string {
   });
 }
 
+function fmt(val: number): string {
+  if (val <= 0) return "0";
+  if (val >= 1) return val.toFixed(3);
+  if (val >= 0.001) return val.toFixed(5);
+  const exp = Math.floor(Math.log10(val));
+  const decimals = Math.min(-exp + 2, 10);
+  return val.toFixed(decimals).replace(/\.?0+$/, "") || "0";
+}
+
 export default function TradingViewChart({
   lineData,
   candleData,
@@ -43,7 +61,7 @@ export default function TradingViewChart({
   color = "#9C93E8",
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<string | null>(null);
+  const [tooltip, setTooltip] = useState<TooltipState>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -65,14 +83,14 @@ export default function TradingViewChart({
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: "rgba(255,255,255,0.18)",
+          color: "rgba(255,255,255,0.15)",
           style: LineStyle.Dashed,
           labelVisible: false,
         },
         horzLine: {
           color: "rgba(255,255,255,0.08)",
           style: LineStyle.Dashed,
-          labelBackgroundColor: color,
+          labelVisible: false,
         },
       },
       rightPriceScale: {
@@ -91,11 +109,11 @@ export default function TradingViewChart({
     });
 
     const useCandle = chartType === "candle" && candleData.length > 0;
-
+    let currentSeries: ReturnType<typeof chart.addSeries> | null = null;
     let dataLength = 0;
 
     if (useCandle) {
-      const series = chart.addSeries(CandlestickSeries, {
+      currentSeries = chart.addSeries(CandlestickSeries, {
         upColor: "#22C55E",
         downColor: "#EF4444",
         borderUpColor: "#22C55E",
@@ -103,10 +121,10 @@ export default function TradingViewChart({
         wickUpColor: "#22C55E",
         wickDownColor: "#EF4444",
       });
-      series.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
+      currentSeries.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
       dataLength = candleData.length;
     } else if (lineData.length > 0) {
-      const series = chart.addSeries(AreaSeries, {
+      currentSeries = chart.addSeries(AreaSeries, {
         lineColor: color,
         topColor: `${color}18`,
         bottomColor: `${color}00`,
@@ -117,18 +135,13 @@ export default function TradingViewChart({
         crosshairMarkerBorderWidth: 2,
         priceLineVisible: false,
       });
-      series.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
+      currentSeries.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
       dataLength = lineData.length;
     }
 
-    // setVisibleLogicalRange: index -0.5 → n-0.5 memaksa titik pertama
-    // tepat di tepi kiri dan titik terakhir tepat di tepi kanan (true edge-to-edge)
     const fitEdgeToEdge = () => {
       if (dataLength >= 2) {
-        chart.timeScale().setVisibleLogicalRange({
-          from: -0.5,
-          to: dataLength - 0.5,
-        });
+        chart.timeScale().setVisibleLogicalRange({ from: -0.5, to: dataLength - 0.5 });
       } else {
         chart.timeScale().fitContent();
       }
@@ -137,11 +150,41 @@ export default function TradingViewChart({
     fitEdgeToEdge();
 
     chart.subscribeCrosshairMove((param) => {
-      if (!param.time || !param.point) {
+      if (!param.time || !param.point || !currentSeries) {
         setTooltip(null);
         return;
       }
-      setTooltip(formatTooltipTime(param.time as number));
+      const raw = param.seriesData.get(currentSeries) as any;
+      if (!raw) {
+        setTooltip(null);
+        return;
+      }
+
+      const flipLeft = param.point.x > el.clientWidth - 140;
+
+      if ("value" in raw) {
+        setTooltip({
+          time: formatTooltipTime(param.time as number),
+          price: fmt(raw.value),
+          x: param.point.x,
+          y: param.point.y,
+          flipLeft,
+        });
+      } else {
+        setTooltip({
+          time: formatTooltipTime(param.time as number),
+          price: fmt(raw.close),
+          ohlc: {
+            o: fmt(raw.open),
+            h: fmt(raw.high),
+            l: fmt(raw.low),
+            c: fmt(raw.close),
+          },
+          x: param.point.x,
+          y: param.point.y,
+          flipLeft,
+        });
+      }
     });
 
     const ro = new ResizeObserver(() => {
@@ -153,19 +196,48 @@ export default function TradingViewChart({
     return () => {
       ro.disconnect();
       chart.remove();
+      setTooltip(null);
     };
   }, [lineData, candleData, chartType, color]);
 
   return (
-    <div className="relative w-full h-full">
-      {/* Noise.xyz-style date tooltip di atas tengah */}
-      <div
-        className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-white/[0.07] border border-white/[0.09] text-white/55 text-xs font-mono pointer-events-none transition-opacity duration-100 ${
-          tooltip ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {tooltip ?? ""}
-      </div>
+    <div className="relative w-full h-full" onMouseLeave={() => setTooltip(null)}>
+      {tooltip && (
+        <div
+          className="absolute z-20 pointer-events-none"
+          style={{
+            left: tooltip.flipLeft ? tooltip.x - 14 : tooltip.x + 14,
+            top: Math.max(8, tooltip.y - (tooltip.ohlc ? 80 : 52)),
+            transform: tooltip.flipLeft ? "translateX(-100%)" : "none",
+          }}
+        >
+          <div
+            className="rounded-xl px-3 py-2.5 flex flex-col gap-1.5 min-w-[110px] shadow-2xl"
+            style={{
+              background: "rgba(10,10,12,0.92)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <span className="text-white font-mono font-semibold text-sm leading-none">
+              {tooltip.price} SOL
+            </span>
+            {tooltip.ohlc && (
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {(["o", "h", "l", "c"] as const).map((k) => (
+                  <div key={k} className="flex items-center gap-1">
+                    <span className="text-white/30 text-[9px] uppercase font-mono">{k}</span>
+                    <span className="text-white/70 text-[10px] font-mono">{tooltip.ohlc![k]}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <span className="text-white/35 font-mono text-[10px] leading-none">
+              {tooltip.time}
+            </span>
+          </div>
+        </div>
+      )}
       <div ref={containerRef} className="w-full h-full" />
     </div>
   );
