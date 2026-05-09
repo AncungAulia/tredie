@@ -40,8 +40,8 @@ export default function TradingViewChart({
     const el = containerRef.current;
 
     const chart = createChart(el, {
-      attributionLogo: false,
       layout: {
+        attributionLogo: false,
         background: { type: ColorType.Solid, color: "transparent" },
         textColor: "rgba(255,255,255,0.25)",
         fontSize: 11,
@@ -65,12 +65,10 @@ export default function TradingViewChart({
       },
       rightPriceScale: {
         borderVisible: false,
-        textColor: "rgba(255,255,255,0.25)",
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
       timeScale: {
         borderVisible: false,
-        textColor: "rgba(255,255,255,0.25)",
         fixLeftEdge: true,
         fixRightEdge: true,
         rightOffset: 3,
