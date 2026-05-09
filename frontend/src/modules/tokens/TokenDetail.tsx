@@ -23,31 +23,30 @@ const RANGE_TO_INTERVAL: Record<TimeRange, OHLCInterval> = {
   "24H": "5m",
   "1W": "1h",
   "1M": "4h",
-  "ALL": "1d",
+  ALL: "1d",
 };
 
 const RANGE_LIMIT: Record<TimeRange, number> = {
   "24H": 300,
   "1W": 200,
   "1M": 200,
-  "ALL": 400,
+  ALL: 400,
 };
 
 const RANGE_LOOKBACK_SEC: Record<TimeRange, number> = {
   "24H": 24 * 3600,
   "1W": 7 * 24 * 3600,
   "1M": 30 * 24 * 3600,
-  "ALL": 365 * 24 * 3600,
+  ALL: 365 * 24 * 3600,
 };
 
 // Step per titik di chart (time-based, bukan trade-based)
 const CHART_STEP_SEC: Record<TimeRange, number> = {
-  "24H": 10 * 60,  // 10 menit
-  "1W": 30 * 60,   // 30 menit
-  "1M": 2 * 3600,  // 2 jam
-  "ALL": 6 * 3600, // 6 jam
+  "24H": 10 * 60, // 10 menit
+  "1W": 30 * 60, // 30 menit
+  "1M": 2 * 3600, // 2 jam
+  ALL: 6 * 3600, // 6 jam
 };
-
 
 function formatSol(lamports: number): string {
   const sol = lamports / 1e9;
@@ -74,7 +73,6 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
-
 export default function TokenDetail({ id }: { id: string }) {
   const identifier = decodeURIComponent(id);
 
@@ -95,9 +93,17 @@ export default function TokenDetail({ id }: { id: string }) {
 
   const interval = RANGE_TO_INTERVAL[timeRange];
   const limit = RANGE_LIMIT[timeRange];
-  const { data: market, isLoading: loadingMarket } = useMarketDetail(identifier);
-  const { data: ohlcData, isLoading: loadingOHLC } = useOHLC(identifier, interval, limit);
-  const { solBalance, tokenBalance } = useWalletBalance(walletAddress, market?.mint);
+  const { data: market, isLoading: loadingMarket } =
+    useMarketDetail(identifier);
+  const { data: ohlcData, isLoading: loadingOHLC } = useOHLC(
+    identifier,
+    interval,
+    limit,
+  );
+  const { solBalance, tokenBalance } = useWalletBalance(
+    walletAddress,
+    market?.mint,
+  );
   const solBalanceSol = solBalance / 1e9;
   const tokenBalanceUi = Number(tokenBalance) / 1e6;
 
@@ -106,8 +112,12 @@ export default function TokenDetail({ id }: { id: string }) {
   useEffect(() => {
     if (status === "success") {
       queryClient.invalidateQueries({ queryKey: ["market", identifier] });
-      queryClient.invalidateQueries({ queryKey: ["balance", "sol", walletAddress] });
-      queryClient.invalidateQueries({ queryKey: ["balance", "token", walletAddress, market?.mint] });
+      queryClient.invalidateQueries({
+        queryKey: ["balance", "sol", walletAddress],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["balance", "token", walletAddress, market?.mint],
+      });
 
       const t1 = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["ohlc", identifier] });
@@ -123,8 +133,8 @@ export default function TokenDetail({ id }: { id: string }) {
   }, [status, reset, queryClient, identifier, walletAddress, market?.mint]);
 
   const spotPrice = market
-    ? ((Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
-        (Number(market.virtual_token_supply) - Number(market.tokens_minted))) /
+    ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
+      (Number(market.virtual_token_supply) - Number(market.tokens_minted)) /
       1e9
     : 0;
 
@@ -156,9 +166,10 @@ export default function TokenDetail({ id }: { id: string }) {
     // Mulai dari candle pertama yang ada (bukan dari windowStart),
     // sehingga market baru yang baru 1 jam trading tetap keliatan volatile
     // meskipun time range-nya 24H.
-    const from = sorted.length > 0
-      ? Math.floor(sorted[0].time / step) * step
-      : Math.floor(windowStart / step) * step;
+    const from =
+      sorted.length > 0
+        ? Math.floor(sorted[0].time / step) * step
+        : Math.floor(windowStart / step) * step;
 
     const result: { time: number; value: number }[] = [];
     let lastPrice = pricePerToken;
@@ -192,7 +203,16 @@ export default function TokenDetail({ id }: { id: string }) {
   const isPositive = priceDeltaBps >= 0;
 
   const label = market?.display_name ?? identifier;
-  const ticker = identifier.includes(":") ? identifier.split(":")[1] : identifier;
+  const ticker = identifier.includes(":")
+    ? identifier.split(":")[1]
+    : identifier;
+
+  const tabCounts = market
+    ? {
+        trades: market.recent_trades.length,
+        holders: Number(market.stats.holders_count),
+      }
+    : { trades: 0, holders: 0 };
 
   const TOKEN_DECIMALS = 1e6;
   const parsedAmount = parseFloat(amount || "0");
@@ -200,11 +220,12 @@ export default function TokenDetail({ id }: { id: string }) {
   // pricePerToken = SOL per human token (bukan per raw token)
   // buy:  SOL ÷ (SOL/token) = token
   // sell: token × (SOL/token) = SOL
-  const estimatedOutput = pricePerToken > 0
-    ? tradeType === "buy"
-      ? `${(parsedAmount / pricePerToken).toFixed(2)} ${ticker}`
-      : `${(parsedAmount * pricePerToken).toFixed(4)} SOL`
-    : "—";
+  const estimatedOutput =
+    pricePerToken > 0
+      ? tradeType === "buy"
+        ? `${(parsedAmount / pricePerToken).toFixed(2)} ${ticker}`
+        : `${(parsedAmount * pricePerToken).toFixed(4)} SOL`
+      : "—";
 
   function handleCopy() {
     navigator.clipboard.writeText(identifier);
@@ -225,7 +246,12 @@ export default function TokenDetail({ id }: { id: string }) {
     return (
       <div className="w-full max-w-7xl mx-auto pb-24 flex flex-col items-center justify-center py-32">
         <p className="text-white/40">Market not found: {identifier}</p>
-        <Link href="/topics" className="mt-4 text-[#9C93E8] text-sm hover:underline">← Back to Topics</Link>
+        <Link
+          href="/topics"
+          className="mt-4 text-[#9C93E8] text-sm hover:underline"
+        >
+          ← Back to Topics
+        </Link>
       </div>
     );
   }
@@ -255,7 +281,9 @@ export default function TokenDetail({ id }: { id: string }) {
                 {identifier}
                 <Copy size={10} />
               </button>
-              {copied && <span className="text-[#9C93E8] text-[10px]">Copied!</span>}
+              {copied && (
+                <span className="text-[#9C93E8] text-[10px]">Copied!</span>
+              )}
             </div>
           </div>
 
@@ -271,9 +299,12 @@ export default function TokenDetail({ id }: { id: string }) {
                 className="font-mono font-bold text-base leading-snug"
                 style={{ color: isPositive ? "#00FF47" : "#EF4444" }}
               >
-                {isPositive ? "+" : ""}{(priceDeltaBps / 100).toFixed(2)}%
+                {isPositive ? "+" : ""}
+                {(priceDeltaBps / 100).toFixed(2)}%
               </span>
-              <span className="text-white/30 text-[11px] mt-0.5">24h change</span>
+              <span className="text-white/30 text-[11px] mt-0.5">
+                24h change
+              </span>
             </div>
             <div className="flex flex-col">
               <span className="text-white font-mono font-bold text-base leading-snug">
@@ -290,7 +321,10 @@ export default function TokenDetail({ id }: { id: string }) {
         {/* Left column */}
         <div className="flex-1 min-w-0 flex flex-col gap-6">
           {/* Chart */}
-          <div className="w-full rounded-xl overflow-hidden relative" style={{ background: "#000", height: 320 }}>
+          <div
+            className="w-full rounded-xl overflow-hidden relative"
+            style={{ background: "#000", height: 320 }}
+          >
             {loadingOHLC ? (
               <div className="w-full h-full animate-pulse bg-white/[0.03]" />
             ) : (
@@ -311,12 +345,16 @@ export default function TokenDetail({ id }: { id: string }) {
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={`h-6 overflow-hidden group rounded transition-colors cursor-pointer ${
-                    timeRange === range ? "text-white font-semibold" : "text-white/25 hover:text-white/55"
+                    timeRange === range
+                      ? "text-white font-semibold"
+                      : "text-white/25 hover:text-white/55"
                   }`}
                 >
                   <div className="flex flex-col text-xs font-medium group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
                     <span className="block px-2.5 py-1">{range}</span>
-                    <span className="block px-2.5 py-1" aria-hidden="true">{range}</span>
+                    <span className="block px-2.5 py-1" aria-hidden="true">
+                      {range}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -338,18 +376,24 @@ export default function TokenDetail({ id }: { id: string }) {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { label: "Spot Price", value: `${formatPrice(pricePerToken)} SOL` },
-              { label: "24h Volume", value: `${formatVolume(market.stats.volume_24h_lamports)} SOL` },
-              { label: "Mindshare", value: `${mindshare.toFixed(1)}%` },
-              { label: "Holders", value: Number(market.stats?.holders_count ?? 0).toLocaleString() },
+              {
+                label: "Spot Price",
+                value: `${formatPrice(pricePerToken)} SOL`,
+              },
+              {
+                label: "24h Volume",
+                value: `${formatVolume(market.stats.volume_24h_lamports)} SOL`,
+              },
             ].map(({ label, value }) => (
               <div
                 key={label}
                 className="flex flex-col gap-1 bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-3"
               >
-                <span className="text-white/35 text-[11px] uppercase tracking-wide">{label}</span>
+                <span className="text-white/35 text-[11px] uppercase tracking-wide">
+                  {label}
+                </span>
                 <span className="font-mono text-sm text-white">{value}</span>
               </div>
             ))}
@@ -363,12 +407,24 @@ export default function TokenDetail({ id }: { id: string }) {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={`h-8 overflow-hidden group relative transition-colors cursor-pointer ${
-                    activeTab === tab ? "text-white" : "text-white/35 hover:text-white/65"
+                    activeTab === tab
+                      ? "text-white"
+                      : "text-white/35 hover:text-white/65"
                   }`}
                 >
                   <div className="flex flex-col text-sm font-medium capitalize group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
-                    <span className="block pb-3">{tab}</span>
-                    <span className="block pb-3" aria-hidden="true">{tab}</span>
+                    <span className="block pb-3">
+                      {tab}{" "}
+                      <span className="text-white/40 not-capitalize font-mono text-xs">
+                        ({tabCounts[tab]})
+                      </span>
+                    </span>
+                    <span className="block pb-3" aria-hidden="true">
+                      {tab}{" "}
+                      <span className="text-white/40 not-capitalize font-mono text-xs">
+                        ({tabCounts[tab]})
+                      </span>
+                    </span>
                   </div>
                   {activeTab === tab && (
                     <span className="absolute bottom-0 left-0 w-full h-[2px] bg-[#9C93E8] rounded-full" />
@@ -386,7 +442,9 @@ export default function TokenDetail({ id }: { id: string }) {
                       className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
                     >
                       <div className="flex items-center gap-3">
-                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${t.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
+                        <span
+                          className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${t.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}
+                        >
                           {t.side === 0 ? "BUY" : "SELL"}
                         </span>
                         <span className="font-mono text-xs text-white/50">
@@ -404,36 +462,41 @@ export default function TokenDetail({ id }: { id: string }) {
                   No trades yet.
                 </div>
               )
-            ) : (
-              market.holders && market.holders.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  {market.holders.map((h) => (
-                    <div
-                      key={h.trader}
-                      className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-[11px] text-white/30 w-5 text-right">#{h.rank}</span>
-                        <span className="font-mono text-xs text-white/50">
-                          {h.trader.slice(0, 6)}…{h.trader.slice(-4)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-xs text-white/30">
-                          {(h.share_bps / 100).toFixed(2)}%
-                        </span>
-                        <span className="font-mono text-xs text-white/70">
-                          {(Number(h.net_tokens) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
+            ) : market.holders.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {market.holders.map((h) => (
+                  <div
+                    key={h.trader}
+                    className="flex items-center justify-between px-4 py-2.5 bg-white/[0.02] border border-white/[0.05] rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[11px] text-white/30 w-5 text-right">
+                        #{h.rank}
+                      </span>
+                      <span className="font-mono text-xs text-white/50">
+                        {h.trader.slice(0, 6)}…{h.trader.slice(-4)}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="w-full text-center py-10 text-white/30 text-sm border border-white/[0.06] rounded-xl bg-white/[0.015]">
-                  No holders yet.
-                </div>
-              )
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs text-white/30">
+                        {(h.share_bps / 100).toFixed(2)}%
+                      </span>
+                      <span className="font-mono text-xs text-white/70">
+                        {(Number(h.net_tokens) / 1e6).toLocaleString(
+                          undefined,
+                          { maximumFractionDigits: 2 },
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="w-full text-center py-10 text-white/30 text-sm border border-white/[0.06] rounded-xl bg-white/[0.015]">
+                {Number(market.stats.holders_count) > 0
+                  ? `${Number(market.stats.holders_count)} trader${Number(market.stats.holders_count) > 1 ? "s" : ""} have traded — no current holders.`
+                  : "No holders yet."}
+              </div>
             )}
           </div>
         </div>
@@ -458,8 +521,12 @@ export default function TokenDetail({ id }: { id: string }) {
                   }`}
                 >
                   <div className="flex flex-col text-base font-bold group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
-                    <span className="block pb-0.5">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
-                    <span className="block pb-0.5" aria-hidden="true">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                    <span className="block pb-0.5">
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </span>
+                    <span className="block pb-0.5" aria-hidden="true">
+                      {type.charAt(0).toUpperCase() + type.slice(1)}
+                    </span>
                   </div>
                 </button>
               ))}
@@ -509,7 +576,9 @@ export default function TokenDetail({ id }: { id: string }) {
                 >
                   <div className="flex flex-col text-xs font-medium group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
                     <span className="block py-2">{pct}%</span>
-                    <span className="block py-2" aria-hidden="true">{pct}%</span>
+                    <span className="block py-2" aria-hidden="true">
+                      {pct}%
+                    </span>
                   </div>
                 </button>
               ))}
@@ -521,7 +590,9 @@ export default function TokenDetail({ id }: { id: string }) {
             </div>
 
             {error && (
-              <p className="text-[#EF4444] text-xs text-center -mt-1">{error}</p>
+              <p className="text-[#EF4444] text-xs text-center -mt-1">
+                {error}
+              </p>
             )}
             {!authenticated ? (
               <button
@@ -532,12 +603,26 @@ export default function TokenDetail({ id }: { id: string }) {
               </button>
             ) : (
               <button
-                disabled={status === "preparing" || status === "signing" || status === "success"}
+                disabled={
+                  status === "preparing" ||
+                  status === "signing" ||
+                  status === "success"
+                }
                 onClick={() => {
                   if (tradeType === "buy") {
-                    execute({ identifier, side: "buy", solAmount: parsedAmount || 0.01 });
+                    execute({
+                      identifier,
+                      side: "buy",
+                      solAmount: parsedAmount || 0.01,
+                    });
                   } else {
-                    execute({ identifier, side: "sell", tokenAmount: String(Math.floor(parsedAmount * TOKEN_DECIMALS)) });
+                    execute({
+                      identifier,
+                      side: "sell",
+                      tokenAmount: String(
+                        Math.floor(parsedAmount * TOKEN_DECIMALS),
+                      ),
+                    });
                   }
                 }}
                 className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed ${
@@ -548,7 +633,9 @@ export default function TokenDetail({ id }: { id: string }) {
                       : "bg-[#EF4444] text-black hover:brightness-110"
                 }`}
               >
-                <div className={`flex flex-col transition-transform duration-300 ease-out ${status === "success" ? "-translate-y-1/2" : ""}`}>
+                <div
+                  className={`flex flex-col transition-transform duration-300 ease-out ${status === "success" ? "-translate-y-1/2" : ""}`}
+                >
                   <span className="flex items-center justify-center h-[50px]">
                     {status === "preparing"
                       ? "Preparing..."
@@ -556,7 +643,10 @@ export default function TokenDetail({ id }: { id: string }) {
                         ? "Signing..."
                         : `${tradeType === "buy" ? "Buy" : "Sell"} ${ticker}`}
                   </span>
-                  <span className="flex items-center justify-center h-[50px]" aria-hidden="true">
+                  <span
+                    className="flex items-center justify-center h-[50px]"
+                    aria-hidden="true"
+                  >
                     Success
                   </span>
                 </div>
@@ -567,40 +657,51 @@ export default function TokenDetail({ id }: { id: string }) {
       </div>
 
       {/* Mobile: buy button — portal ke body, bypass transform stacking context */}
-      {mounted && createPortal(
-        <div className="md:hidden fixed bottom-16 inset-x-0 z-40 px-4 pb-3 pt-4 bg-gradient-to-t from-[#09090B] to-transparent">
-          <button
-            onClick={() => { setTradeType("buy"); setSheetOpen(true); }}
-            className="w-full h-12 rounded-xl font-bold text-sm bg-[#00FF47] text-black active:brightness-90 transition-all"
-          >
-            Buy {ticker}
-          </button>
-        </div>,
-        document.body
-      )}
+      {mounted &&
+        createPortal(
+          <div className="md:hidden fixed bottom-16 inset-x-0 z-40 px-4 pb-3 pt-4 bg-gradient-to-t from-[#09090B] to-transparent">
+            <button
+              onClick={() => {
+                setTradeType("buy");
+                setSheetOpen(true);
+              }}
+              className="w-full h-12 rounded-xl font-bold text-sm bg-[#00FF47] text-black active:brightness-90 transition-all"
+            >
+              Buy {ticker}
+            </button>
+          </div>,
+          document.body,
+        )}
 
       {/* Mobile: vaul Drawer — portal ke body secara internal */}
-      <Drawer.Root open={sheetOpen} onOpenChange={setSheetOpen} shouldScaleBackground={false}>
+      <Drawer.Root
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        shouldScaleBackground={false}
+      >
         <Drawer.Portal>
           <Drawer.Overlay className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm" />
           <Drawer.Content
             className="fixed bottom-0 left-0 right-0 z-[70] rounded-t-2xl outline-none flex flex-col"
-            style={{ background: "#0a0a0b", borderTop: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              background: "#0a0a0b",
+              borderTop: "1px solid rgba(255,255,255,0.08)",
+            }}
           >
             <div className="flex justify-center pt-3 pb-1">
               <div className="w-10 h-1 bg-white/20 rounded-full" />
             </div>
 
             <div className="px-5 pb-10 flex flex-col gap-4">
-              <h3 className="text-white font-bold text-base text-center py-2">
-                Trade {label}
-              </h3>
+              <Drawer.Title className="text-white font-bold text-base text-center py-2">
+                Buy {ticker}
+              </Drawer.Title>
 
               <div className="flex gap-5">
                 {(["buy", "sell"] as const).map((type) => (
                   <button
                     key={type}
-                    onClick={() => setTradeType(type)}
+                    onClick={() => setTradeType(type)}  
                     className={`h-[26px] overflow-hidden group transition-colors cursor-pointer capitalize ${
                       tradeType === type
                         ? type === "buy"
@@ -610,8 +711,12 @@ export default function TokenDetail({ id }: { id: string }) {
                     }`}
                   >
                     <div className="flex flex-col text-base font-bold group-hover:-translate-y-1/2 transition-transform duration-300 ease-out">
-                      <span className="block pb-0.5">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
-                      <span className="block pb-0.5" aria-hidden="true">{type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                      <span className="block pb-0.5">
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </span>
+                      <span className="block pb-0.5" aria-hidden="true">
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                      </span>
                     </div>
                   </button>
                 ))}
@@ -619,7 +724,13 @@ export default function TokenDetail({ id }: { id: string }) {
 
               <div className="flex items-center justify-between text-xs text-white/35">
                 <span>Balance:</span>
-                <span className="font-mono">— SOL</span>
+                <span className="font-mono">
+                  {authenticated
+                    ? tradeType === "buy"
+                      ? `${(solBalance / 1e9).toFixed(4)} SOL`
+                      : `${(Number(tokenBalance) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${ticker}`
+                    : "— SOL"}
+                </span>
               </div>
 
               <div
@@ -642,7 +753,13 @@ export default function TokenDetail({ id }: { id: string }) {
                 {[25, 50, 75, 100].map((pct) => (
                   <button
                     key={pct}
-                    onClick={() => setAmount((pct * 0.001).toFixed(4))}
+                    onClick={() => {
+                      if (tradeType === "buy") {
+                        setAmount(((solBalance / 1e9) * (pct / 100)).toFixed(4));
+                      } else {
+                        setAmount(((Number(tokenBalance) / 1e6) * (pct / 100)).toFixed(2));
+                      }
+                    }}
                     className="h-8 text-white/45 bg-white/[0.05] hover:bg-white/[0.09] rounded-lg text-xs font-medium transition-colors cursor-pointer"
                   >
                     {pct}%
@@ -651,11 +768,15 @@ export default function TokenDetail({ id }: { id: string }) {
               </div>
 
               <div className="flex items-center justify-between py-1 text-sm">
-                <span className="text-white/60 font-mono">{estimatedOutput}</span>
+                <span className="text-white/60 font-mono">
+                  {estimatedOutput}
+                </span>
                 <span className="text-white/30 text-xs">estimated</span>
               </div>
 
-              {error && <p className="text-[#EF4444] text-xs text-center">{error}</p>}
+              {error && (
+                <p className="text-[#EF4444] text-xs text-center">{error}</p>
+              )}
 
               {!authenticated ? (
                 <button
@@ -666,12 +787,26 @@ export default function TokenDetail({ id }: { id: string }) {
                 </button>
               ) : (
                 <button
-                  disabled={status === "preparing" || status === "signing" || status === "success"}
+                  disabled={
+                    status === "preparing" ||
+                    status === "signing" ||
+                    status === "success"
+                  }
                   onClick={() => {
                     if (tradeType === "buy") {
-                      execute({ identifier, side: "buy", solAmount: parsedAmount || 0.01 });
+                      execute({
+                        identifier,
+                        side: "buy",
+                        solAmount: parsedAmount || 0.01,
+                      });
                     } else {
-                      execute({ identifier, side: "sell", tokenAmount: String(Math.floor(parsedAmount * TOKEN_DECIMALS)) });
+                      execute({
+                        identifier,
+                        side: "sell",
+                        tokenAmount: String(
+                          Math.floor(parsedAmount * TOKEN_DECIMALS),
+                        ),
+                      });
                     }
                   }}
                   className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed ${
@@ -682,11 +817,22 @@ export default function TokenDetail({ id }: { id: string }) {
                         : "bg-[#EF4444] text-black hover:brightness-110"
                   }`}
                 >
-                  <div className={`flex flex-col transition-transform duration-300 ease-out ${status === "success" ? "-translate-y-1/2" : ""}`}>
+                  <div
+                    className={`flex flex-col transition-transform duration-300 ease-out ${status === "success" ? "-translate-y-1/2" : ""}`}
+                  >
                     <span className="flex items-center justify-center h-[50px]">
-                      {status === "preparing" ? "Preparing..." : status === "signing" ? "Signing..." : `${tradeType === "buy" ? "Buy" : "Sell"} ${ticker}`}
+                      {status === "preparing"
+                        ? "Preparing..."
+                        : status === "signing"
+                          ? "Signing..."
+                          : `${tradeType === "buy" ? "Buy" : "Sell"} ${ticker}`}
                     </span>
-                    <span className="flex items-center justify-center h-[50px]" aria-hidden="true">Success</span>
+                    <span
+                      className="flex items-center justify-center h-[50px]"
+                      aria-hidden="true"
+                    >
+                      Success
+                    </span>
                   </div>
                 </button>
               )}
