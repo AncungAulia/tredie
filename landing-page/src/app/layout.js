@@ -23,6 +23,9 @@ const Font3 = localFont({
 export const metadata = {
   title: "Tredie",
   description: "Tredie",
+  icons: {
+    icon: "/assets/icons/tredie-favicon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {

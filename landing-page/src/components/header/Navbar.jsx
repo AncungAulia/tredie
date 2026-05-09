@@ -169,13 +169,13 @@ export default function Navbar() {
 
   return (
     <div id="navbar-over" className="space-y-0">
-      <div className="w-full flex  origin-top nav-menu-item-first justify-center fixed top-0 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert max-sm:h-[8vw] max-sm:pt-[2vw]">
+      <div className="w-full flex items-center origin-top nav-menu-item-first justify-center fixed sm:top-0 top-2.5 right-3 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert max-sm:h-[6vw] max-sm:pt-[2vw]">
         <Image
-          src="/assets/svg/icon-logo.svg"
+          src="/assets/svg/tredie-icon-logo.svg"
           alt="logo"
-          width={500}
-          height={500}
-          className="object-contain "
+          width={3563}
+          height={721}
+          className="h-full w-auto invert"
         />
       </div>
 
