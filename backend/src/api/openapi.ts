@@ -344,6 +344,15 @@ export const openApiSpec = {
           creator_pubkey: { type: "string" },
           creator_source: { type: "string", enum: ["auto_spawn", "user_search", "user_link_paste"] },
           created_at: { type: "string" },
+          // Aggregations + economics enriched on the list endpoint
+          volume_24h_lamports: { type: "string", description: "Sum of trade.sol_amount in last 24h" },
+          trade_count_24h: { type: "string" },
+          holders_count: { type: "string", description: "Distinct trader count (lifetime)" },
+          sparkline_24h: { type: "array", items: { type: "integer" }, description: "Hourly avg current_mindshare_bps for last 24h" },
+          spot_price_lamports: { type: "number", description: "Lamports per token base unit (current AMM spot)" },
+          market_cap_lamports: { type: "string", description: "spot_price × tokens_minted (circulating supply value)" },
+          fdv_lamports: { type: "string", description: "spot_price × virtual_token_supply (fully diluted)" },
+          liquidity_lamports: { type: "string", description: "real_sol_reserves — actual SOL backing the pool (TVL)" },
         },
       },
       OracleResponse: {

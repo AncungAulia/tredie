@@ -155,16 +155,36 @@ const topics = await api.get('markets', { searchParams: { type: 'topic' } }).jso
 }
 ```
 
-`EnrichedMarketRow` = `MarketRow` plus 4 extra fields (computed in one bulk pass — no N+1):
+`EnrichedMarketRow` = `MarketRow` plus aggregations + token economics (computed in one bulk pass — no N+1):
 
 ```ts
 interface EnrichedMarketRow extends MarketRow {
+  // 24h aggregations from trades + mindshare_history
   volume_24h_lamports: string;     // bigint string — sum of trade.sol_amount last 24h
   trade_count_24h: string;         // bigint string
   holders_count: string;           // bigint string — distinct trader count (lifetime)
   sparkline_24h: number[];         // hourly avg current_mindshare_bps, oldest first
                                     // Empty array if `sparkline=false` or no history
+
+  // Token economics derived from AMM curve state
+  spot_price_lamports: number;     // (base_virtual_sol + real_sol_reserves) /
+                                    // (virtual_token_supply - tokens_minted)
+                                    // = lamports per token base unit
+  market_cap_lamports: string;     // bigint — spot_price × tokens_minted
+                                    // (circulating supply × current price)
+  fdv_lamports: string;            // bigint — spot_price × virtual_token_supply
+                                    // (fully diluted valuation)
+  liquidity_lamports: string;      // bigint — real_sol_reserves
+                                    // (actual SOL backing the pool / TVL)
 }
+```
+
+**Convert to display units:**
+```ts
+const marketCapSol = Number(market.market_cap_lamports) / 1e9;
+const liquiditySol = Number(market.liquidity_lamports) / 1e9;
+const fdvSol       = Number(market.fdv_lamports) / 1e9;
+// SOL → USD: multiply by external SOL/USD oracle (Pyth, Coingecko, etc.)
 ```
 
 **`MarketRow`** (full shape returned by backend; bigints come as strings):
@@ -237,7 +257,10 @@ GET /markets/:identifier
     volume_24h_lamports: string,              // bigint string
     trade_count_24h: string,
     holders_count: string,
-    spot_price_lamports_per_token: number     // current AMM spot
+    spot_price_lamports_per_token: number,    // current AMM spot
+    market_cap_lamports: string,              // bigint — spot × circulating
+    fdv_lamports: string,                     // bigint — spot × virtual supply
+    liquidity_lamports: string                // bigint — actual SOL in pool (TVL)
   }
 }
 ```

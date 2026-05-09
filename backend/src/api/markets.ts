@@ -33,6 +33,46 @@ function curveStateOf(m: db.MarketRow): MarketCurveState {
   };
 }
 
+/**
+ * Derive token economics for a market in one place — keep this calc in sync
+ * with the AMM curve in programs/.../buy.rs.
+ *
+ * spot_price_lamports = (base_virtual_sol + real_sol_reserves) /
+ *                       (virtual_token_supply - tokens_minted)
+ * market_cap_lamports = spot_price × tokens_minted     (circulating × price)
+ * fdv_lamports        = spot_price × virtual_token_supply (fully diluted)
+ * liquidity_lamports  = real_sol_reserves                (actual SOL in pool)
+ *
+ * Returns bigints as bigint (caller wraps via jsonSafe for serialization).
+ */
+function computeMarketEconomics(m: db.MarketRow): {
+  spot_price_lamports: number;
+  market_cap_lamports: bigint;
+  fdv_lamports: bigint;
+  liquidity_lamports: bigint;
+} {
+  const baseSol = BigInt(m.base_virtual_sol);
+  const realSol = BigInt(m.real_sol_reserves);
+  const virtSupply = BigInt(m.virtual_token_supply);
+  const minted = BigInt(m.tokens_minted);
+
+  const poolSol = baseSol + realSol;
+  const poolTokens = virtSupply - minted;
+  const spot = poolTokens > 0n ? Number(poolSol) / Number(poolTokens) : 0;
+
+  // Number math is safe here: spot is small (~1e-5), supplies ~1e15, products
+  // land in 1e10 range — well under Number.MAX_SAFE_INTEGER (~9e15).
+  const market_cap_lamports = BigInt(Math.floor(spot * Number(minted)));
+  const fdv_lamports = BigInt(Math.floor(spot * Number(virtSupply)));
+
+  return {
+    spot_price_lamports: spot,
+    market_cap_lamports,
+    fdv_lamports,
+    liquidity_lamports: realSol,
+  };
+}
+
 // Higher-level grouping for FE tabs. "token" covers all tradable asset
 // classes (crypto/dex/equity/commodity/fx); "topic" is trend-class only.
 // CA (class 5) is currently unspawnable so excluded from "token" too.
@@ -138,6 +178,13 @@ marketsRoutes.get("/", async (c) => {
       m.trade_count_24h = v?.trade_count ?? 0n;
       m.holders_count = holdersMap.get(m.pda) ?? 0n;
       if (includeSparkline) m.sparkline_24h = sparkMap.get(m.pda) ?? [];
+
+      // Token economics derived from AMM state — free since we already have the row
+      const econ = computeMarketEconomics(m as db.MarketRow);
+      m.spot_price_lamports = econ.spot_price_lamports;
+      m.market_cap_lamports = econ.market_cap_lamports;
+      m.fdv_lamports = econ.fdv_lamports;
+      m.liquidity_lamports = econ.liquidity_lamports;
     }
   }
 
@@ -170,13 +217,7 @@ marketsRoutes.get("/:identifier", async (c) => {
   // pre-filtered for FE chart annotations (rather than scanning client-side).
   const autoEvents = history.filter((h) => h.source === "auto_event");
 
-  // Compute current spot price (lamports per token base unit) from curve state.
-  const poolSol =
-    BigInt(market.base_virtual_sol) + BigInt(market.real_sol_reserves);
-  const poolTokens =
-    BigInt(market.virtual_token_supply) - BigInt(market.tokens_minted);
-  const spotPriceLamports =
-    poolTokens > 0n ? Number(poolSol) / Number(poolTokens) : 0;
+  const econ = computeMarketEconomics(market);
 
   return c.json(
     jsonSafe({
@@ -188,7 +229,10 @@ marketsRoutes.get("/:identifier", async (c) => {
         volume_24h_lamports: vol[0]?.volume ?? 0n,
         trade_count_24h: vol[0]?.trade_count ?? 0n,
         holders_count: holders[0]?.holders ?? 0n,
-        spot_price_lamports_per_token: spotPriceLamports,
+        spot_price_lamports_per_token: econ.spot_price_lamports,
+        market_cap_lamports: econ.market_cap_lamports,
+        fdv_lamports: econ.fdv_lamports,
+        liquidity_lamports: econ.liquidity_lamports,
       },
     }),
   );
