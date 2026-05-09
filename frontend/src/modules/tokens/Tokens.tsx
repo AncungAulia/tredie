@@ -10,6 +10,7 @@ import { TrendingUp, TrendingDown } from "lucide-react";
 function MiniLineChart({ data, color = "#9C93E8" }: { data: number[]; color?: string }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
+  const isFlat = max === min;
   const range = max - min || 1;
   const h = 48;
   const w = 160;
@@ -18,7 +19,7 @@ function MiniLineChart({ data, color = "#9C93E8" }: { data: number[]; color?: st
   const points = data
     .map((val, i) => {
       const x = i * step;
-      const y = h - ((val - min) / range) * h;
+      const y = isFlat ? h / 2 : h - ((val - min) / range) * h;
       return `${x},${y}`;
     })
     .join(" ");
@@ -106,7 +107,6 @@ export default function Tokens() {
     <div className="w-full h-full flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-display font-bold">Tokens</h1>
-        <p className="text-white/40 text-sm">Attention markets for crypto tokens</p>
       </div>
 
       <div className="flex items-center gap-3 overflow-x-auto scrollbar-hide pb-1">
@@ -135,11 +135,18 @@ export default function Tokens() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filtered.map((market) => {
             const mindshare = market.current_mindshare_bps / 100;
-            const sparkline = market.sparkline_24h;
-            const sparklineDelta =
-              sparkline.length >= 2 ? sparkline[sparkline.length - 1] - sparkline[0] : 0;
-            const ratchet = market.ratchet_multiplier_bps / 10_000;
             const price = spotPriceSol(market);
+            const ratchet = market.ratchet_multiplier_bps / 10_000;
+            const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
+            const currentMcap = price * Number(market.tokens_minted);
+            const sparkline =
+              rawSparkline.length >= 2
+                ? rawSparkline
+                : Array(2).fill(currentMcap);
+            const sparklineDelta =
+              rawSparkline.length >= 2 && rawSparkline[0] !== 0
+                ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
+                : 0;
 
             return (
               <Link href={`/tokens/${encodeURIComponent(market.identifier)}`} key={market.identifier}>
@@ -156,7 +163,7 @@ export default function Tokens() {
                       <span className="text-xl font-mono font-bold">{mindshare.toFixed(1)}%</span>
                       <span className={`text-xs flex items-center gap-1 mt-0.5 ${sparklineDelta >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
                         {sparklineDelta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                        {Math.abs(sparklineDelta / 100).toFixed(1)}%
+                        {Math.abs(sparklineDelta).toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -166,7 +173,7 @@ export default function Tokens() {
                     <span className="text-white/30 text-sm font-mono">SOL</span>
                   </div>
 
-                  {sparkline.length > 1 && <MiniLineChart data={sparkline} />}
+                  <MiniLineChart data={sparkline} />
 
                   <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
                     <div className="flex items-center gap-2">

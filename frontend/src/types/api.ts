@@ -18,6 +18,7 @@ export interface Market {
   volume_24h_lamports: string;
   holders_count: string;
   sparkline_24h: number[];
+  market_cap_sparkline_24h: string[];
   created_at: string;
 }
 
@@ -51,7 +52,8 @@ export interface MarketDetail extends Market {
 }
 
 export interface OHLCCandle {
-  time: number;
+  time?: number;
+  bucket?: string | number;
   open: number;
   high: number;
   low: number;

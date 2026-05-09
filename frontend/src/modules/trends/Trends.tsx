@@ -14,6 +14,7 @@ function MiniLineChart({
 }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
+  const isFlat = max === min;
   const range = max - min || 1;
   const h = 48;
   const w = 160;
@@ -22,7 +23,7 @@ function MiniLineChart({
   const points = data
     .map((val, i) => {
       const x = i * step;
-      const y = h - ((val - min) / range) * h;
+      const y = isFlat ? h / 2 : h - ((val - min) / range) * h;
       return `${x},${y}`;
     })
     .join(" ");
@@ -67,13 +68,25 @@ function formatVolume(lamports: string): string {
 
 function TrendCard({ market }: { market: Market }) {
   const mindshare = market.current_mindshare_bps / 100;
-  const sparkline = market.sparkline_24h;
+  const currentPrice =
+    Number(market.virtual_token_supply) - Number(market.tokens_minted) > 0
+      ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
+        (Number(market.virtual_token_supply) - Number(market.tokens_minted))
+      : 0;
+  const currentMcap = currentPrice * Number(market.tokens_minted);
+  const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
+  const sparkline =
+    rawSparkline.length >= 2
+      ? rawSparkline
+      : Array(2).fill(currentMcap);
   const sparklineDelta =
-    sparkline.length >= 2 ? sparkline[sparkline.length - 1] - sparkline[0] : 0;
+    rawSparkline.length >= 2 && rawSparkline[0] !== 0
+      ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
+      : 0;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
 
   return (
-    <Link href={`/trends/${encodeURIComponent(market.identifier)}`}>
+    <Link href={`/topics/${encodeURIComponent(market.identifier)}`}>
       <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
         <div className="flex justify-between items-start gap-4">
           <div className="flex-1 min-w-0">
@@ -86,7 +99,7 @@ function TrendCard({ market }: { market: Market }) {
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">
-              Trends
+              Topics
             </span>
 
             <span className="text-xl font-mono font-bold">
@@ -100,12 +113,12 @@ function TrendCard({ market }: { market: Market }) {
               ) : (
                 <TrendingDown size={11} />
               )}
-              {Math.abs(sparklineDelta / 100).toFixed(1)}%
+              {Math.abs(sparklineDelta).toFixed(1)}%
             </span>
           </div>
         </div>
 
-        {sparkline.length > 1 && <MiniLineChart data={sparkline} />}
+        <MiniLineChart data={sparkline} />
 
         <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
           <div className="flex items-center gap-2">
@@ -137,9 +150,6 @@ export default function Trends() {
     <div className="w-full h-full flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-display font-bold">Trends</h1>
-        <p className="text-white/40 text-sm">
-          Trending attention markets curated by Elfa AI
-        </p>
       </div>
 
       {isLoading ? (
