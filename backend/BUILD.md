@@ -5,6 +5,23 @@ Panduan implementasi lengkap backend Tredie. Backend ini bertindak sebagai jemba
 frontend (Next.js). Semua state, cache, dan fan-out real-time ke frontend ditangani
 oleh **Supabase (Postgres + Realtime)**.
 
+> **⚠️ SOURCE OF TRUTH — READ FIRST**
+>
+> Spec ini adalah panduan ARSITEKTUR. Untuk **API contract terbaru** (response shapes, query params, request bodies) selalu refer ke:
+> - **[`backend/FRONTEND_INTEGRATION.md`](./FRONTEND_INTEGRATION.md)** — frontend integration guide, generated dari kode aktual
+> - **`/api/openapi.json`** (live di backend) — auto-generated OpenAPI 3.1 spec, definitive
+> - **`backend/.env.example`** — env vars terbaru
+>
+> Kalau ada conflict antara dokumen ini dan tiga sumber di atas, percaya yang itu.
+> Highlights perubahan since v1 doc:
+> 1. **Identifier convention** rewrite — sekarang `a`/`ax` prefix untuk attention tokens, camelCase untuk trends. Detail di tabel di bawah.
+> 2. **MPL Token Metadata CPI** ditambahkan ke `create_market` ix — 11 accounts, name+uri Borsh args.
+> 3. **AI gating layer** (Gemini judge) — filters Elfa candidates before spawn.
+> 4. **9+ endpoint baru**: `/markets/estimate`, `/markets/:id/ohlc`, `/markets/:id/oracle`, `/markets/:id/ai-context`, `/portfolio/:address`, `/factory`, `/admin/*`, `/auto-queries`, `/api/docs`.
+> 5. **Cron throttled** — TrendingPoller `0 */2 * * *` (2-jam), Gemini free-tier 20 RPD friendly.
+> 6. **Auto watcher opt-in** — Elfa Auto subscribe via `AUTO_WATCHER_ENABLED` env, default false.
+> 7. **CORS multi-origin** — `FRONTEND_URL` accepts comma-separated list.
+
 ## Konsep produk
 
 Tredie adalah **attention tokenization layer** — setiap "trend" (entitas yang lagi
@@ -17,20 +34,26 @@ Mirip Zora secara primitif (anyone can tokenize anything + AMM), tapi ekspansiny
 ke **attention-level**: lo gak speculate sama 1 post, lo speculate sama gelombang
 attention itu sendiri.
 
-**Asset class on-chain:**
+**Asset class on-chain (CURRENT convention, post identifier-prefix migration):**
 
-| Class | Identifier convention | Contoh | Discovery primitive |
+| Class | Identifier format | Contoh | Discovery primitive |
 |---|---|---|---|
-| 0 = crypto | Plain ticker | `BTC`, `BONK` | Elfa `trending-tokens` |
-| 1 = dex | Plain ticker | `JUP` | Elfa `trending-tokens` |
-| 2-4 = equity/commodity/fx | `xyz:` prefix (HIP-3) | `xyz:NVDA`, `xyz:XAU` | Elfa `top-mentions` |
-| 5 = CA | Solana base58 | `So11111111111111111111111111111111111111112` | Elfa `trending-cas/{platform}` |
-| **6 = trend** | **`trend:` prefix + slug** | **`trend:chinese-baddies`** | **Elfa `trending-narratives` + `keyword-mentions`** |
+| 0 = crypto | `a` + UPPERCASE ticker | `aBTC`, `aETH`, `aSOL`, `aPEPE` | Elfa `trending-tokens` |
+| 1 = dex | `a` + UPPERCASE | `aJUP` | Elfa `trending-tokens` |
+| 2-4 = equity/commodity/fx | `ax` + UPPERCASE | `axNVDA`, `axSPX`, `axXAU`, `axDXY` | Elfa `top-mentions` |
+| 5 = CA | base58 (32-44 chars) | `So11111111111111111111111111111111111111112` | Elfa `trending-cas/{platform}` ⚠️ currently unspawnable |
+| **6 = trend** | **camelCase, NO prefix** | **`cnbadd`, `labubu`, `government`, `hantavirus`** | **Elfa `trending-narratives` + `keyword-mentions`** |
 
-> Smart contract sudah di-deploy:
-> - Devnet: `EUAyjsbak9hRXPxU4zdDWwrL1Qy8RpwmfV9PNGKpdxBU`
+**HARD CAP: identifier ≤10 bytes** — Metaplex symbol limit. SC derives SPL token symbol verbatim from identifier; over-cap = MPL CPI fails with `NameTooLong` (custom 0xb).
+
+The `a`/`ax` prefix marks ATTENTION TOKEN — wallets/explorers show e.g. `aBTC` symbol with display_name "Bitcoin", making it clear users trade mindshare not the underlying.
+
+**Legacy convention** (`BTC`, `xyz:NVDA`, `t:cnbadd`, `trend:foo`) is GONE. Markets spawned under those formats are orphaned — backend code's `trendIdToKeyword` recognizes them for backward-compat keyword extraction, tapi spawn logic produces only the new convention going forward.
+
+> Smart contract:
+> - Devnet (active): `EUAyjsbak9hRXPxU4zdDWwrL1Qy8RpwmfV9PNGKpdxBU` — has MPL Token Metadata CPI baked in
 > - Localnet: `4FCfLbAUvwhXKHsaSUyZBEL9Va1cowM72naFiuSNQB3Z`
-> - Source: `/programs/programs/tredie/src` — instructions: `init_factory`, `create_market`, `buy`, `sell`, `update_mindshare`
+> - Source: `/programs/programs/tredie/src` — instructions: `init_factory`, `create_market` (11 accounts inc. metadata + MPL prog), `buy`, `sell`, `update_mindshare`
 
 ---
 
@@ -258,13 +281,35 @@ ELFA_API_BASE=https://api.elfa.ai
 ELFA_AUTO_WEBHOOK_SECRET=YOUR_ELFA_AUTO_WEBHOOK_SECRET
 
 # ── Frontend ────────────────────────────────────────────────────────────────
-FRONTEND_URL=http://localhost:3000
+# Comma-separated CORS allow-list — supports dev + prod simultaneously.
+# Whitespace per entry is trimmed.
+FRONTEND_URL=http://localhost:3000,https://tredie.vercel.app
 BACKEND_URL=http://localhost:4000
 
 # ── Thresholds ──────────────────────────────────────────────────────────────
-AUTO_SPAWN_THRESHOLD_PCT=0.5      # spawn market jika mindshare > 0.5%
-CA_SPAWN_THRESHOLD=500            # spawn CA market jika mention_count > 500
-HYPE_EVENT_PREMIUM_BPS=500        # boost mindshare saat hype event Auto
+AUTO_SPAWN_THRESHOLD_PCT=0.05     # spawn market jika mindshare > 0.05% (legacy fallback only)
+CA_SPAWN_THRESHOLD=10             # spawn CA market jika mention_count > 10 (legacy fallback only)
+HYPE_EVENT_PREMIUM_BPS=500        # boost mindshare saat hype event
+
+# ── AI gating (Gemini) ─────────────────────────────────────────────────────
+# Gemini judges Elfa polling candidates — skip noise, normalize identifier,
+# generate display_name. Free tier 20 RPD; cron throttled to fit (see below).
+# Get key from https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=AIzaSy...
+GEMINI_MODEL=gemini-3.1-flash-lite   # gemini-2.5-flash atau gemini-3.1-flash-lite
+AI_GATING_ENABLED=true                # false → fallback to rule-based threshold spawn
+AI_MIN_CONFIDENCE_BPS=4000            # spawn only if AI verdict.confidence >= 4000 (40%)
+
+# ── Cron schedules ─────────────────────────────────────────────────────────
+# TrendingPoller default 2h cadence keeps inside Gemini free-tier 20 RPD.
+# Override to "*/15 * * * *" only if running paid Gemini.
+TRENDING_POLL_CRON=0 */2 * * *
+
+# ── Elfa Auto subscribe ────────────────────────────────────────────────────
+# Default OFF — Elfa Auto API rate-limits free tier heavily (returns 429
+# after 1-2 subscribes per minute). LocalHypeDetector covers surge detection
+# regardless. Flip true ONLY on paid Elfa tier.
+AUTO_WATCHER_ENABLED=false
 ```
 
 ### `src/config.ts`
@@ -1555,15 +1600,23 @@ export async function getKeywordMentions(
   timeWindow = "1h",
 ): Promise<KeywordMentionsResponse>;
 
-// Identifier helpers untuk trend convention `trend:<slug>`
+// Identifier helpers — current convention: trend = camelCase, NO prefix, ≤10 bytes
 export function normalizeTrendId(phrase: string): string | null;
-//   "Chinese Baddies"        → "trend:chinese-baddies"
-//   "AI agents replacing..." → null  (>32 bytes after slug)
+//   "Chinese Baddies"          → "chineseBd"   (camelCase, fits 10 bytes)
+//   "Anthropic SpaceX deal"    → "anthSpacex"  (10 bytes ✓)
+//   ""                         → null
+// Legacy "trend:foo" / "t:foo" formats are no longer produced; old markets
+// using those identifiers are orphans.
 
 export function trendIdToKeyword(identifier: string): string | null;
-//   "trend:chinese-baddies"  → "chinese baddies" (untuk pass ke Elfa keyword-mentions)
+//   "chineseBd"            → "chinese bd"      (camelCase split)
+//   "trend:chinese-baddies" → "chinese baddies" (legacy compat)
+//   "t:cnbadd"             → "cnbadd"          (legacy compat)
 
 export function isTrendId(identifier: string): boolean;
+//   Heuristic: lowercase first char + lowercase second char (rules out aBTC/axNVDA).
+//   Recognizes legacy "trend:" / "t:" prefixes too. Prefer reading
+//   market.asset_class === 6 directly when available.
 ```
 
 ### `src/elfa/auto-client.ts`
@@ -2341,6 +2394,46 @@ export async function indexTransaction(tx: {
 
 ## 10. API Routes (Hono)
 
+> 📘 **Authoritative API spec**: lihat `backend/FRONTEND_INTEGRATION.md` untuk full request/response shape per endpoint, atau hit `/api/openapi.json` di backend yang running untuk machine-readable OpenAPI 3.1 spec.
+>
+> Below is high-level mounting structure. Per-endpoint detail (query params, request bodies, response shapes, validation, error codes) ada di FRONTEND_INTEGRATION.md.
+
+### Endpoint inventory (current)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/v1/health` | Combined health (DB + Solana RPC + slot) |
+| GET | `/api/v1/health/db` | Postgres probe |
+| GET | `/api/v1/health/solana` | Solana RPC probe |
+| GET | `/api/v1/health/elfa` | Elfa API probe |
+| GET | `/api/v1/factory` | Decoded factory state + DB market count + class breakdown |
+| GET | `/api/v1/markets` | List markets w/ aggregates (volume/holders/sparkline/marketcap). Params: `type=token\|topic`, `assetClass`, `limit`, `sortBy`, `order`, `sparkline` |
+| GET | `/api/v1/markets/:identifier` | Detail w/ mindshareHistory, recentTrades, autoEvents, full stats block |
+| GET | `/api/v1/markets/:identifier/trades` | Recent trades for one market |
+| GET | `/api/v1/markets/:identifier/oracle` | On-chain decoded MindshareOracle state |
+| GET | `/api/v1/markets/:identifier/ohlc` | Derived OHLC candles, fallback to mindshare_history series |
+| GET | `/api/v1/markets/:identifier/ai-context` | Elfa Chat AI thesis (free tier returns 502) |
+| POST | `/api/v1/markets/estimate` | Preview buy/sell output via server-side AMM mirror |
+| POST | `/api/v1/markets/prepare-trade` | Build unsigned tx + bake slippage protection from `slippageBps` |
+| POST | `/api/v1/markets/prepare-create` | Idempotent market spawn (bypasses AI gating, user-initiated) |
+| GET | `/api/v1/trending/tokens` | Cached Elfa trending-tokens last 20 min |
+| GET | `/api/v1/trending/cas/:platform` | Trending CAs for `twitter` or `telegram` |
+| GET | `/api/v1/search?q=` | Type-ahead suggestions (ticker / CA / trend) |
+| POST | `/api/v1/resolve-link` | Paste social URL → metadata + extracted symbol |
+| GET | `/api/v1/portfolio/:address` | Per-wallet positions, PnL stats, recent activity |
+| GET | `/api/v1/auto-queries` | Elfa Auto subscription state (debug) |
+| POST | `/api/v1/admin/poll-trending` | Manually trigger TrendingPoller cycle |
+| POST | `/api/v1/admin/update-oracles` | Manually trigger OracleUpdater |
+| POST | `/api/v1/admin/scan-hype` | Manually trigger LocalHypeDetector |
+| POST | `/api/v1/admin/force-hype` | Demo: artificial hype event for one market |
+| GET | `/api/v1/admin/candidates` | Inspect AI gating decisions (filter by verdict) |
+| POST | `/api/v1/admin/candidates/:id/approve` | Manual override: force-spawn an AI-rejected candidate |
+| POST | `/api/v1/admin/candidates/:id/reject` | Mark a candidate as permanently rejected |
+| POST | `/api/webhooks/helius` | Inbound from Helius (Bearer auth, indexes Trade events) |
+| POST | `/api/webhooks/elfa` | Inbound from Elfa Auto (HMAC-signed, fires hype boost) |
+| GET | `/api/openapi.json` | Auto-generated OpenAPI 3.1 spec |
+| GET | `/api/docs` | Interactive Swagger UI |
+
 ### `src/api/routes.ts`
 
 ```typescript
@@ -2350,7 +2443,13 @@ import { marketsRoutes } from "./markets";
 import { trendingRoutes } from "./trending";
 import { searchRoutes } from "./search";
 import { resolveLinkRoutes } from "./resolve-link";
+import { factoryRoutes } from "./factory";
+import { autoQueriesRoutes } from "./auto-queries";
+import { adminRoutes } from "./admin";
+import { portfolioRoutes } from "./portfolio";
 import { webhookRoutes } from "./webhooks";
+import { swaggerUI } from "@hono/swagger-ui";
+import { openApiSpec } from "./openapi";
 
 export function buildRouter() {
   const app = new Hono();
@@ -2361,9 +2460,16 @@ export function buildRouter() {
   v1.route("/trending", trendingRoutes);
   v1.route("/search", searchRoutes);
   v1.route("/resolve-link", resolveLinkRoutes);
+  v1.route("/factory", factoryRoutes);
+  v1.route("/auto-queries", autoQueriesRoutes);
+  v1.route("/admin", adminRoutes);
+  v1.route("/portfolio", portfolioRoutes);
 
   app.route("/api/v1", v1);
   app.route("/api/webhooks", webhookRoutes);
+
+  app.get("/api/openapi.json", (c) => c.json(openApiSpec));
+  app.get("/api/docs", swaggerUI({ url: "/api/openapi.json" }));
 
   return app;
 }
@@ -2860,8 +2966,8 @@ export const queue = new InMemoryQueue();
 ```
 □ src/solana/{connection,signer,pda,instructions,decoder}.ts
 □ src/scripts/init-factory.ts — bun run factory:init
-□ src/scripts/spawn-market.ts — bun run market:spawn -- BTC 0
-□ src/scripts/manual-oracle-update.ts — bun run oracle:update -- --identifier BTC --bps 2500
+□ src/scripts/spawn-market.ts — bun run market:spawn -- aBTC 0
+□ src/scripts/manual-oracle-update.ts — bun run oracle:update -- --identifier aBTC --bps 2500
 □ Verifikasi factory PDA + market PDA + oracle PDA di Solana Explorer (devnet)
 ```
 
@@ -2950,7 +3056,7 @@ main().catch((e) => { console.error(e); process.exit(1); });
 ### `src/scripts/spawn-market.ts`
 
 ```typescript
-// bun run market:spawn -- BTC 0
+// bun run market:spawn -- aBTC 0
 import { marketSpawner } from "../services/market-spawner";
 
 const [identifier, assetClassRaw] = process.argv.slice(2);
@@ -3004,12 +3110,17 @@ const SEEDS = [
   { identifier: "BONK", assetClass: 0 },
   { identifier: "WIF", assetClass: 0 },
   { identifier: "JUP", assetClass: 0 },
-  { identifier: "xyz:NVDA", assetClass: 2, displayName: "Nvidia" },
-  { identifier: "xyz:TSLA", assetClass: 2, displayName: "Tesla" },
-  { identifier: "xyz:AAPL", assetClass: 2, displayName: "Apple" },
-  { identifier: "xyz:XAU", assetClass: 3, displayName: "Gold" },
-  { identifier: "xyz:CL", assetClass: 3, displayName: "Crude Oil" },
-  { identifier: "xyz:DXY", assetClass: 4, displayName: "DXY" },
+  // crypto: "a" + UPPERCASE
+  { identifier: "aBTC", assetClass: 0, displayName: "Bitcoin" },
+  { identifier: "aETH", assetClass: 0, displayName: "Ethereum" },
+  { identifier: "aSOL", assetClass: 0, displayName: "Solana" },
+  // equity / commodity / fx: "ax" + UPPERCASE
+  { identifier: "axNVDA", assetClass: 2, displayName: "Nvidia" },
+  { identifier: "axTSLA", assetClass: 2, displayName: "Tesla" },
+  { identifier: "axAAPL", assetClass: 2, displayName: "Apple" },
+  { identifier: "axXAU", assetClass: 3, displayName: "Gold" },
+  { identifier: "axCL", assetClass: 3, displayName: "Crude Oil" },
+  { identifier: "axDXY", assetClass: 4, displayName: "DXY" },
 ];
 
 for (const s of SEEDS) {
@@ -3134,7 +3245,7 @@ bun run db:migrate
 # 4. Init on-chain factory (sekali aja, kalo belum)
 bun run factory:init
 
-# 5. Seed markets awal (termasuk trend:chinese-baddies, trend:ai-agents, dll)
+# 5. Seed markets awal (aBTC, aETH, axNVDA, axTSLA, cnbadd, labubu, dll)
 bun run seed
 
 # 6. Dev server
@@ -3144,7 +3255,7 @@ bun run dev
 curl http://localhost:4000/api/v1/health
 curl http://localhost:4000/api/v1/markets
 curl 'http://localhost:4000/api/v1/search?q=BTC'
-curl 'http://localhost:4000/api/v1/markets/trend:chinese-baddies'
+curl 'http://localhost:4000/api/v1/markets/cnbadd'
 ```
 
 ### Frontend Realtime subscription (referensi)
