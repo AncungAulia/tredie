@@ -146,6 +146,14 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.20); }
 
+/* Hide TradingView attribution logo */
+#tv-attr-logo { display: none !important; }
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
 /* Recharts custom colors */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
@@ -160,4 +168,12 @@ body {
 }
 .animate-fadeIn {
   animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-pageIn {
+  animation: pageIn 0.22s cubic-bezier(0.25, 0.1, 0.25, 1) both;
 }
