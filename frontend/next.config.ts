@@ -1,6 +1,7 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["lightweight-charts", "fancy-canvas"],
   images: {
     remotePatterns: [
       { hostname: 'cdn.helius-rpc.com' },
