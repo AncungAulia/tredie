@@ -7,7 +7,6 @@ mockup/
 .claude/
 skills-lock.json
 iventions-main/
-images/
 
 # Build artifacts
 programs/target/
