@@ -40,6 +40,13 @@ const envSchema = z.object({
   CA_SPAWN_THRESHOLD: z.string().default("10").transform(Number),
   HYPE_EVENT_PREMIUM_BPS: z.string().default("500").transform(Number),
 
+  // Elfa Auto subscribe is heavily rate-limited on free tier. local-hype-detector
+  // handles surge detection independently, so default OFF. Flip true on paid tier.
+  AUTO_WATCHER_ENABLED: z
+    .string()
+    .default("false")
+    .transform((v) => v === "true"),
+
   GEMINI_API_KEY: z.string().default(""),
   GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
   AI_GATING_ENABLED: z.string().default("true").transform((v) => v === "true"),

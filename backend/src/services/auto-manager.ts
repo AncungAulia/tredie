@@ -98,10 +98,27 @@ function buildConditions(market: db.MarketRow): object | null {
   };
 }
 
+/**
+ * Process-wide circuit breaker. Once Elfa Auto returns 429, we stop
+ * hammering them for the rest of the cooldown window. Auto watcher is
+ * a "nice to have" — local-hype-detector covers surge detection
+ * regardless, so skipping the subscription is safe.
+ */
+const RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+declare global {
+  // eslint-disable-next-line no-var
+  var __tredieAutoRateLimitedUntil: number | undefined;
+}
+
+function autoIsRateLimited(): boolean {
+  return (globalThis.__tredieAutoRateLimitedUntil ?? 0) > Date.now();
+}
+function tripAutoCircuit() {
+  globalThis.__tredieAutoRateLimitedUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+}
+
 export async function createHypeWatcher(market: db.MarketRow): Promise<string | null> {
-  // Elfa Auto requires HTTPS webhook URL. In local dev BACKEND_URL=http://localhost,
-  // so Auto subscription will fail with EQL_INVALID_ACTION. local-hype-detector
-  // handles surge detection in dev — skip Auto subscription silently here.
+  // 1. HTTPS gate (dev fallback).
   if (!config.BACKEND_URL.startsWith("https://")) {
     log.debug(
       { identifier: market.identifier, backendUrl: config.BACKEND_URL },
@@ -110,7 +127,29 @@ export async function createHypeWatcher(market: db.MarketRow): Promise<string | 
     return null;
   }
 
-  // Skip CA with overly long identifier (Auto symbol length cap)
+  // 2. Elfa Auto opt-in flag. When AUTO_WATCHER_ENABLED=false, skip silently.
+  //    Default OFF on free tier — Elfa Auto subscribe is heavily rate-limited
+  //    and local-hype-detector already covers surge detection. Set true only
+  //    if running on paid Elfa tier where /v2/auto/queries has real headroom.
+  if (!config.AUTO_WATCHER_ENABLED) {
+    log.debug(
+      { identifier: market.identifier },
+      "AUTO_WATCHER_ENABLED=false — skipping Elfa Auto subscription",
+    );
+    return null;
+  }
+
+  // 3. Rate-limit circuit breaker. Once we hit 429, sit out for 10 min.
+  if (autoIsRateLimited()) {
+    const remainingMs = (globalThis.__tredieAutoRateLimitedUntil ?? 0) - Date.now();
+    log.debug(
+      { identifier: market.identifier, cooldownMs: remainingMs },
+      "Elfa Auto rate-limited — skipping until cooldown elapses",
+    );
+    return null;
+  }
+
+  // 4. Skip CA with overly long identifier (Auto symbol length cap)
   if (market.asset_class === 5 && market.identifier.length > 20) {
     log.debug({ identifier: market.identifier }, "Skipping Auto query for long CA");
     return null;
@@ -168,6 +207,23 @@ export async function createHypeWatcher(market: db.MarketRow): Promise<string | 
       return null;
     }
     const created = await autoClient.createQuery(request);
+    // Defensive: Elfa occasionally returns 200 with a body shape that lacks
+    // queryId. Without this check, we'd pass undefined to sql() and throw
+    // "UNDEFINED_VALUE" downstream, masking the real upstream issue.
+    if (!created?.queryId) {
+      const reason = `unexpected_response: ${JSON.stringify(created).slice(0, 200)}`;
+      log.warn(
+        { identifier: market.identifier, response: created },
+        "Auto createQuery returned no queryId",
+      );
+      await db.insertFailedAutoQuery({
+        market_pda: market.pda,
+        query_type: "hype_event",
+        config: request,
+        error_reason: reason,
+      }).catch(() => {});
+      return null;
+    }
     await db.insertAutoQuery({
       query_id: created.queryId,
       query_type: "hype_event",
@@ -184,7 +240,19 @@ export async function createHypeWatcher(market: db.MarketRow): Promise<string | 
     return created.queryId;
   } catch (e: any) {
     const reason = e?.message ?? String(e);
-    log.warn({ err: reason, identifier: market.identifier }, "Auto watcher failed");
+    const is429 = /429|Too Many Requests/i.test(reason);
+    if (is429) {
+      tripAutoCircuit();
+      log.warn(
+        { identifier: market.identifier, cooldownMs: RATE_LIMIT_COOLDOWN_MS },
+        "Elfa Auto 429 — circuit tripped, skipping further subscribes for 10 min",
+      );
+    } else {
+      log.warn(
+        { err: reason, identifier: market.identifier },
+        "Auto watcher failed",
+      );
+    }
     await db.insertFailedAutoQuery({
       market_pda: market.pda,
       query_type: "hype_event",
