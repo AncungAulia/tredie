@@ -34,12 +34,14 @@ export async function getMarketDetail(identifier: string): Promise<MarketDetail>
       market: Market;
       mindshareHistory: MarketDetail["mindshare_history"];
       recentTrades: MarketDetail["recent_trades"];
+      holders: MarketDetail["holders"];
       stats: MarketDetail["stats"];
     }>();
   return {
     ...res.market,
     mindshare_history: res.mindshareHistory,
     recent_trades: res.recentTrades,
+    holders: res.holders ?? [],
     stats: res.stats,
   };
 }

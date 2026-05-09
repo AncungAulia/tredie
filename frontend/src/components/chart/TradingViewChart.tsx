@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   createChart,
   ColorType,
@@ -23,7 +23,17 @@ interface Props {
   candleData: CandlePoint[];
   chartType: "line" | "candle";
   color?: string;
-  lastPrice?: number;
+}
+
+function formatTooltipTime(unix: number): string {
+  const d = new Date(unix * 1000);
+  return d.toLocaleString("en", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 }
 
 export default function TradingViewChart({
@@ -31,53 +41,58 @@ export default function TradingViewChart({
   candleData,
   chartType,
   color = "#9C93E8",
-  lastPrice,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [tooltip, setTooltip] = useState<string | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
 
     const chart = createChart(el, {
+      handleScroll: false,
+      handleScale: false,
       layout: {
         attributionLogo: false,
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "rgba(255,255,255,0.25)",
+        textColor: "rgba(255,255,255,0.28)",
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: "rgba(255,255,255,0.04)" },
-        horzLines: { color: "rgba(255,255,255,0.04)" },
+        vertLines: { visible: false },
+        horzLines: { visible: false },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: "rgba(255,255,255,0.15)",
+          color: "rgba(255,255,255,0.18)",
           style: LineStyle.Dashed,
-          labelBackgroundColor: "#1a1a1a",
+          labelVisible: false,
         },
         horzLine: {
-          color: "rgba(255,255,255,0.15)",
+          color: "rgba(255,255,255,0.08)",
           style: LineStyle.Dashed,
-          labelBackgroundColor: "#1a1a1a",
+          labelBackgroundColor: color,
         },
       },
       rightPriceScale: {
         borderVisible: false,
-        scaleMargins: { top: 0.1, bottom: 0.1 },
+        visible: false,
+        scaleMargins: { top: 0.08, bottom: 0.08 },
       },
       timeScale: {
         borderVisible: false,
-        fixLeftEdge: true,
-        fixRightEdge: true,
-        rightOffset: 3,
+        visible: false,
+        rightOffset: 0,
+        lockVisibleTimeRangeOnResize: true,
       },
       width: el.clientWidth,
       height: el.clientHeight,
     });
 
     const useCandle = chartType === "candle" && candleData.length > 0;
+
+    let dataLength = 0;
 
     if (useCandle) {
       const series = chart.addSeries(CandlestickSeries, {
@@ -88,42 +103,50 @@ export default function TradingViewChart({
         wickUpColor: "#22C55E",
         wickDownColor: "#EF4444",
       });
-      series.setData(
-        candleData.map((d) => ({ ...d, time: d.time as any }))
-      );
+      series.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
+      dataLength = candleData.length;
     } else if (lineData.length > 0) {
       const series = chart.addSeries(AreaSeries, {
         lineColor: color,
-        topColor: `${color}28`,
+        topColor: `${color}18`,
         bottomColor: `${color}00`,
         lineWidth: 2,
-        crosshairMarkerRadius: 4,
+        crosshairMarkerRadius: 3,
         crosshairMarkerBorderColor: color,
-        crosshairMarkerBackgroundColor: color,
+        crosshairMarkerBackgroundColor: "#09090B",
+        crosshairMarkerBorderWidth: 2,
+        priceLineVisible: false,
       });
-      series.setData(
-        lineData.map((d) => ({ ...d, time: d.time as any }))
-      );
-
-      if (lastPrice !== undefined && isFinite(lastPrice)) {
-        series.createPriceLine({
-          price: lastPrice,
-          color: color,
-          lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
-          axisLabelVisible: false,
-          title: "",
-        });
-      }
+      series.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
+      dataLength = lineData.length;
     }
 
-    chart.timeScale().fitContent();
+    // setVisibleLogicalRange: index -0.5 → n-0.5 memaksa titik pertama
+    // tepat di tepi kiri dan titik terakhir tepat di tepi kanan (true edge-to-edge)
+    const fitEdgeToEdge = () => {
+      if (dataLength >= 2) {
+        chart.timeScale().setVisibleLogicalRange({
+          from: -0.5,
+          to: dataLength - 0.5,
+        });
+      } else {
+        chart.timeScale().fitContent();
+      }
+    };
+
+    fitEdgeToEdge();
+
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point) {
+        setTooltip(null);
+        return;
+      }
+      setTooltip(formatTooltipTime(param.time as number));
+    });
 
     const ro = new ResizeObserver(() => {
-      chart.applyOptions({
-        width: el.clientWidth,
-        height: el.clientHeight,
-      });
+      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      fitEdgeToEdge();
     });
     ro.observe(el);
 
@@ -131,7 +154,19 @@ export default function TradingViewChart({
       ro.disconnect();
       chart.remove();
     };
-  }, [lineData, candleData, chartType, color, lastPrice]);
+  }, [lineData, candleData, chartType, color]);
 
-  return <div ref={containerRef} className="w-full h-full" />;
+  return (
+    <div className="relative w-full h-full">
+      {/* Noise.xyz-style date tooltip di atas tengah */}
+      <div
+        className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-white/[0.07] border border-white/[0.09] text-white/55 text-xs font-mono pointer-events-none transition-opacity duration-100 ${
+          tooltip ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {tooltip ?? ""}
+      </div>
+      <div ref={containerRef} className="w-full h-full" />
+    </div>
+  );
 }
