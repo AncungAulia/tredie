@@ -1,7 +1,8 @@
 "use client";
 import React, { useRef, useEffect, useState } from "react";
 import { gsap } from "gsap";
-import { usePrivy, useLogin, useWallets } from "@privy-io/react-auth";
+import { usePrivy, useLogin } from "@privy-io/react-auth";
+import { useWallets } from "@privy-io/react-auth/solana";
 
 function truncate(str: string, front = 4, back = 4) {
   if (str.length <= front + back + 3) return str;
@@ -55,7 +56,7 @@ export default function ConnectButton() {
   if (!mounted || !ready) {
     label = "Connect Wallet";
   } else if (authenticated) {
-    const solanaWallet = wallets.find((w) => w.walletClientType !== "privy");
+    const solanaWallet = wallets[0];
     if (solanaWallet) {
       label = truncate(solanaWallet.address);
     } else if (user?.email?.address) {
