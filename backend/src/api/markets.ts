@@ -187,7 +187,7 @@ marketsRoutes.get("/", async (c) => {
             hourly AS (
               SELECT
                 market_pda,
-                ((block_time / 3600) * 3600)::bigint AS bucket,
+                ((block_time / 900) * 900)::bigint AS bucket,
                 SUM(CASE WHEN side = 0 THEN token_amount ELSE -token_amount END)::bigint AS net_delta,
                 (ARRAY_AGG(sol_amount   ORDER BY block_time DESC))[1] AS last_sol,
                 (ARRAY_AGG(token_amount ORDER BY block_time DESC))[1] AS last_tokens
@@ -219,12 +219,18 @@ marketsRoutes.get("/", async (c) => {
     }
     // mcap = close_price (lamports/token) × cum_tokens (token base units) → lamports
     const mcapMap = new Map<string, bigint[]>();
+    const priceSparkMap = new Map<string, number[]>();
     for (const r of mcapRows) {
+      if (!Number.isFinite(r.close_price) || r.close_price <= 0) continue;
       const raw = r.close_price * Number(r.cum_tokens);
-      if (!Number.isFinite(raw)) continue;
-      const arr = mcapMap.get(r.market_pda) ?? [];
-      arr.push(BigInt(Math.floor(raw)));
-      mcapMap.set(r.market_pda, arr);
+      if (Number.isFinite(raw)) {
+        const arr = mcapMap.get(r.market_pda) ?? [];
+        arr.push(BigInt(Math.floor(raw)));
+        mcapMap.set(r.market_pda, arr);
+      }
+      const priceArr = priceSparkMap.get(r.market_pda) ?? [];
+      priceArr.push(r.close_price);
+      priceSparkMap.set(r.market_pda, priceArr);
     }
 
     for (const m of enriched) {
@@ -235,6 +241,7 @@ marketsRoutes.get("/", async (c) => {
       if (includeSparkline) {
         m.sparkline_24h = sparkMap.get(m.pda) ?? [];
         m.market_cap_sparkline_24h = mcapMap.get(m.pda) ?? [];
+        m.price_sparkline_24h = priceSparkMap.get(m.pda) ?? [];
       }
 
       // Token economics derived from AMM state — free since we already have the row
