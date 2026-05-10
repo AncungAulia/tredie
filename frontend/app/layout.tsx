@@ -24,8 +24,11 @@ const Font3 = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Tredie — On-Chain Attention Market",
-  description: "Trade social attention on crypto, equities, and commodities on Solana.",
+  title: "Tredie App",
+  description: "Trade social attention markets on Solana powered by Elfa AI.",
+  icons: {
+    icon: [{ url: "/tredie-favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

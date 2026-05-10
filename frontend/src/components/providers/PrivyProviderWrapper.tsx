@@ -20,7 +20,7 @@ export default function PrivyProviderWrapper({ children }: { children: React.Rea
           theme: "dark",
           accentColor: "#9C93E8",
           walletChainType: "solana-only",
-          logo: "/logo.png",
+          logo: "/tredie-favicon.svg",
         },
         solana: {
           rpcs: {

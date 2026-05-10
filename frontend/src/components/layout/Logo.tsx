@@ -1,13 +1,11 @@
 import Link from "next/link";
-import React from "react";
+import Image from "next/image";
 
 export default function Logo() {
   return (
     <Link href="/topics" className="shrink-0 flex items-center gap-2">
-      <div className="w-8 h-8 rounded-md bg-[#A855F7] flex items-center justify-center">
-        <span className="text-white font-sans font-bold text-lg">T</span>
-      </div>
-      <span className="text-[#FAFAFA] font-sans font-bold text-lg tracking-wide hidden sm:block">
+      <Image src="/tredie-favicon.svg" alt="Tredie" width={32} height={32} />
+      <span className="text-[#FAFAFA] font-sans font-bold text-lg tracking-wide ">
         Tredie.
       </span>
     </Link>

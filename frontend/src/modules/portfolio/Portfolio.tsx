@@ -59,7 +59,7 @@ export default function Portfolio() {
         <div className="md:col-span-1 bg-white/[0.03] border border-white/[0.07] rounded-2xl p-8 flex flex-col justify-center">
           <p className="text-white/40 text-sm mb-2">Portfolio Value</p>
           {isLoading ? (
-            <div className="h-10 w-32 bg-white/10 rounded animate-pulse" />
+            <div className="h-10 w-32 bg-white/10 rounded animate-shimmer" />
           ) : (
             <h2 className="text-4xl font-sans font-bold">
               {formatSol(stats?.total_held_value_lamports ?? 0)}
@@ -132,7 +132,7 @@ export default function Portfolio() {
             {isLoading ? (
               <div className="space-y-3">
                 {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="h-16 bg-white/[0.03] border border-white/[0.05] rounded-xl animate-pulse" />
+                  <div key={i} className="h-16 bg-white/[0.03] border border-white/[0.05] rounded-xl animate-shimmer" />
                 ))}
               </div>
             ) : isError ? (
@@ -147,28 +147,44 @@ export default function Portfolio() {
                 {positions.map((pos) => (
                   <div
                     key={pos.market_pda}
-                    className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4"
+                    className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4"
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-white font-medium text-sm">
-                        {pos.display_name ?? pos.identifier}
-                      </span>
-                      <span className="text-white/30 text-xs font-mono">{pos.identifier}</span>
-                    </div>
-                    <div className="flex items-center gap-8 text-right">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-white/30 text-[11px]">Held value</span>
-                        <span className="font-mono text-sm">{formatSol(pos.held_value_lamports)}</span>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex flex-col gap-0.5">
+                        <span className="text-white font-medium text-sm truncate">
+                          {pos.display_name ?? pos.identifier}
+                        </span>
+                        <span className="text-white/30 text-xs font-mono truncate">{pos.identifier}</span>
                       </div>
+                      <div className="flex items-center gap-4 sm:gap-8 text-right flex-shrink-0">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white/30 text-[11px]">Held value</span>
+                          <span className="font-mono text-sm">{formatSol(pos.held_value_lamports)}</span>
+                        </div>
+                        <div className="hidden sm:flex flex-col gap-0.5">
+                          <span className="text-white/30 text-[11px]">Unrealized PnL</span>
+                          <span className={`font-mono text-sm ${pnlColor(pos.unrealized_pnl_lamports)}`}>
+                            {Number(pos.unrealized_pnl_lamports) >= 0 ? "+" : ""}{formatSol(pos.unrealized_pnl_lamports)}
+                          </span>
+                        </div>
+                        <div className="hidden sm:flex flex-col gap-0.5">
+                          <span className="text-white/30 text-[11px]">Realized PnL</span>
+                          <span className={`font-mono text-sm ${pnlColor(pos.realized_pnl_lamports)}`}>
+                            {Number(pos.realized_pnl_lamports) >= 0 ? "+" : ""}{formatSol(pos.realized_pnl_lamports)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="sm:hidden mt-3 pt-3 border-t border-white/[0.05] flex items-center gap-6">
                       <div className="flex flex-col gap-0.5">
                         <span className="text-white/30 text-[11px]">Unrealized PnL</span>
-                        <span className={`font-mono text-sm ${pnlColor(pos.unrealized_pnl_lamports)}`}>
+                        <span className={`font-mono text-xs ${pnlColor(pos.unrealized_pnl_lamports)}`}>
                           {Number(pos.unrealized_pnl_lamports) >= 0 ? "+" : ""}{formatSol(pos.unrealized_pnl_lamports)}
                         </span>
                       </div>
                       <div className="flex flex-col gap-0.5">
                         <span className="text-white/30 text-[11px]">Realized PnL</span>
-                        <span className={`font-mono text-sm ${pnlColor(pos.realized_pnl_lamports)}`}>
+                        <span className={`font-mono text-xs ${pnlColor(pos.realized_pnl_lamports)}`}>
                           {Number(pos.realized_pnl_lamports) >= 0 ? "+" : ""}{formatSol(pos.realized_pnl_lamports)}
                         </span>
                       </div>
@@ -184,7 +200,7 @@ export default function Portfolio() {
           isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-14 bg-white/[0.03] border border-white/[0.05] rounded-xl animate-pulse" />
+                <div key={i} className="h-14 bg-white/[0.03] border border-white/[0.05] rounded-xl animate-shimmer" />
               ))}
             </div>
           ) : activity.length === 0 ? (
@@ -199,15 +215,13 @@ export default function Portfolio() {
                 return (
                   <div
                     key={tx.signature}
-                    className="flex items-center justify-between bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-3"
+                    className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-3"
                   >
-                    <div className="flex items-center gap-4">
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${tx.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
-                        {tx.side === 0 ? "BUY" : "SELL"}
-                      </span>
-                      <span className="text-white text-sm">{tx.display_name ?? tx.identifier}</span>
-                    </div>
-                    <div className="flex items-center gap-6 text-right">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded flex-shrink-0 ${tx.side === 0 ? "bg-[#22C55E]/10 text-[#22C55E]" : "bg-[#EF4444]/10 text-[#EF4444]"}`}>
+                      {tx.side === 0 ? "BUY" : "SELL"}
+                    </span>
+                    <span className="text-white text-sm min-w-0 flex-1 truncate">{tx.display_name ?? tx.identifier}</span>
+                    <div className="flex flex-col items-end flex-shrink-0 gap-0.5">
                       <span className="font-mono text-sm">{formatSol(tx.sol_amount)}</span>
                       <span className="text-white/30 text-xs font-mono">
                         {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
