@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type TokenCategory = "All" | "Trending" | "On X";
+export type TokenCategory = "Trending" | "Latest";
 
 interface MarketUIState {
   activeTokenCategory: TokenCategory;
@@ -10,7 +10,7 @@ interface MarketUIState {
 }
 
 export const useMarketStore = create<MarketUIState>((set) => ({
-  activeTokenCategory: "All",
+  activeTokenCategory: "Trending",
   searchQuery: "",
   setTokenCategory: (category) => set({ activeTokenCategory: category }),
   setSearchQuery: (query) => set({ searchQuery: query }),
