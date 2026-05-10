@@ -403,7 +403,7 @@ export default function TokenDetail({ id }: { id: string }) {
                     <Info size={11} />
                   </button>
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-[#1c1c1c] border border-white/10 rounded-lg text-[11px] text-white/65 leading-relaxed invisible group-hover/rinfo:visible opacity-0 group-hover/rinfo:opacity-100 transition-opacity duration-150 z-50 pointer-events-none">
-                    The ratchet multiplier raises the bonding curve floor when mindshare peaks. It only moves up — the higher the attention, the higher the price floor.
+                    The ratchet multiplier raises the bonding curve floor when mindshare peaks. It only moves up. The higher the attention, the higher the price floor.
                   </div>
                 </div>
               </div>
