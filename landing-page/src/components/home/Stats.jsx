@@ -41,19 +41,19 @@ const mids = [
 ];
 
   const heading = [
-    "Asset Classes",
-    "Oracle Cadence",
-    "Market Spawn Time",
-    "Floor Direction",
+    "What You Can Trade",
+    "Always Up to Date",
+    "Ready in Seconds",
+    "Prices Only Go Up",
     "In 30 Minutes",
   ];
 
   const content = [
-    "Crypto, tokenized equities, commodities, FX, and DEX tokens. One platform for all of it.",
-    "Elfa AI re-scores real social mindshare every 15 minutes. The curve stays current, not stale.",
-    "Elfa Auto detects a mindshare spike. A market is live on-chain. No manual work, no waiting.",
-    "Attention growth permanently raises the price floor. It never comes back down. The curve has memory.",
-    "What Zora drew in their first 30 minutes on Solana. The market wants this. We built what they couldn’t.",
+    "Crypto, stocks, gold, and currencies. All on one platform, no matter what is trending.",
+    "Every 15 minutes, we check what people are talking about and update prices to match.",
+    "The moment something starts trending, you can already trade it. It happens automatically.",
+    "Once a topic gets popular enough, its price goes up and stays there. It never drops back down.",
+    "The first market on Tredie did $200K in just 30 minutes. Real demand from real people.",
   ];
 
   const imageSources = [
@@ -294,12 +294,12 @@ const mids = [
         </div>
 
         <div className="w-[22%]">
-          <div className="h-[8vw] relative overflow-hidden w-full">
+          <div className="h-[9vw] relative overflow-hidden w-full">
             {heading.map((no, idx) => (
               <p
                 key={idx}
                 ref={(el) => (headingRefs.current[idx] = el)}
-                className="text-black text-[3.4vw] opacity-0 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-[1.2] font-bold text-center"
+                className="text-black text-[2vw] opacity-0 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-[1.2] font-bold text-center"
               >
                 {no}
               </p>

@@ -16,7 +16,7 @@ const categoriesData = [
     title: "If it's blowing up on social, it's already tradeable here.",
     backgroundColor: "bg-[#7B6ED8]",
     description:
-      "Tredie scans X, Telegram, and on-chain data in real time. The moment a token starts trending, a market is live. Fully on-chain, in seconds. No gatekeepers.",
+      "Tredie watches X and Telegram in real time. The moment something starts trending, you can trade it. In seconds. No middlemen.",
     image:
       "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80",
     cta: "Start Trading",
@@ -25,31 +25,30 @@ const categoriesData = [
     id: "02",
     category: "Attention",
     backgroundColor: "bg-[#4C4496]",
-    title: "Attention is the alpha. Buy the signal before the crowd arrives.",
+    title: "Popularity drives price. Get in before everyone else does.",
     description:
-      "Every spike in social volume is a trade waiting to happen. Tredie quantifies mindshare: sentiment velocity, mention counts, momentum. Buy before the crowd prices it in.",
+      "When something starts getting talked about, the price follows. Tredie tracks how fast buzz is growing so you can buy in before the crowd pushes the price up.",
     image:
       "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80",
     cta: "View Signals",
   },
   {
     id: "03",
-    category: "Realtime AI",
+    category: "Smart Tracking",
     backgroundColor: "bg-[#281F5E]",
-    title: "Elfa AI reads the room. You just have to trade it.",
+    title: "We watch what people talk about. You just have to trade it.",
     description:
-      "Powered by Elfa AI, Tredie surfaces emerging narratives before they peak. Trend scores, sentiment analysis, confidence signals. All streaming in real time.",
-    image:
-      "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=800&q=80",
-    cta: "See AI Signals",
+      "Tredie uses Elfa AI to spot what is starting to blow up online before it goes mainstream. Updated continuously, so you always see what is moving right now.",
+    image: "/assets/img/elfa-ai-logo.png",
+    cta: "See What's Trending",
   },
   {
     id: "04",
-    category: "Trending CAs",
+    category: "Trending Tokens",
     backgroundColor: "bg-[#110F28]",
-    title: "X is buzzing, TG is pumping. The market is already spawned.",
+    title: "When it blows up on X and Telegram, the market is already open.",
     description:
-      "Tredie tracks contract addresses going viral on X and Telegram via Elfa AI. The moment a CA starts moving, we spin up a tradeable market automatically, on-chain.",
+      "Tredie watches tokens going viral on X and Telegram. The moment one starts moving, we open a market automatically. No waiting.",
     image:
       "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80",
     cta: "Find Markets",
@@ -92,20 +91,6 @@ const SliderCard = ({
               {description}
             </p>
 
-            <div className="flex gap-[1vw] items-center">
-              <button
-                className={`relative px-[1vw] group flex items-start justify-center overflow-hidden cursor-pointer h-[3.5vw] w-fit font-body text-white text-[0.7vw] font-semibold rounded-[2vw] max-sm:h-[12vw] max-sm:px-[4vw] max-sm:rounded-[6vw] ${backgroundColor}`}
-              >
-                <div className="w-fit transition-none group-hover:transition-all group-hover:duration-300 group-hover:translate-y-[-3vw] flex flex-col items-start justify-end">
-                  <p className="text-[2vw] max-sm:text-[4.5vw]">{cta}</p>
-                  <p className="text-[2vw] max-sm:text-[4.5vw]">{cta}</p>
-                </div>
-              </button>
-              <IconButton
-                icon="/assets/icons/icon-arrow.svg"
-                pad="w-[4.2vw] h-[4.2vw] max-sm:w-[11vw] max-sm:h-[11vw]"
-              />
-            </div>
           </div>
         </div>
       </div>
@@ -214,7 +199,7 @@ const Categories = () => {
   }, []);
 
   return (
-    <section className="relative h-[380vh] max-sm:h-auto w-full z-0">
+    <section id="markets" className="relative h-[380vh] max-sm:h-auto w-full z-0">
       <div
         ref={containerRef}
         className="sticky top-0 w-screen h-screen bg-black overflow-hidden max-sm:relative max-sm:h-auto"

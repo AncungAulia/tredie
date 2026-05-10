@@ -61,15 +61,22 @@ export default function Navbar() {
         const menuOverlayRef = useRef(null);
 
   const navItems = [
-    { title: "About", href: "/about" },
-    { title: "Markets", href: "/markets" },
-    { title: "How It Works", href: "/how-it-works" },
-    { title: "Trending", href: "/trending" },
-    { title: "Portfolio", href: "/portfolio" },
-    { title: "Leaderboard", href: "/leaderboard" },
-    { title: "Docs", href: "/docs" },
-    { title: "Contact", href: "/contact" },
+    { title: "Home",         scrollTo: "#hero" },
+    { title: "About",        scrollTo: "#about" },
+    { title: "Markets",      scrollTo: "#markets" },
+    { title: "How It Works", scrollTo: "#insights" },
+    { title: "Trending",     scrollTo: "#casee-study" },
+    { title: "Portfolio",    href: "https://app.tredie.fun" },
+    { title: "Docs",         href: "/docs" },
+    { title: "Contact",      scrollTo: "#footer-wrapper" },
   ];
+
+  const handleNavClick = (item) => {
+    setMenuOpen(false);
+    if (item.scrollTo) {
+      setTimeout(() => lenis?.scrollTo(item.scrollTo, { offset: 0, duration: 1.2 }), 400);
+    }
+  };
 
   const getClipPathFromPosition = (x, width) => {
     const normalizedX = x / width;
@@ -162,13 +169,13 @@ export default function Navbar() {
 
   return (
     <div id="navbar-over" className="space-y-0">
-      <div className="w-full flex  origin-top nav-menu-item-first justify-center fixed top-0 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert max-sm:h-[8vw] max-sm:pt-[2vw]">
+      <div className="w-full flex items-center origin-top nav-menu-item-first justify-center fixed sm:top-0 top-2.5 right-3 z-9999 pt-[1vw] h-[2vw] mix-blend-exclusion invert max-sm:h-[6vw] max-sm:pt-[2vw]">
         <Image
-          src="/assets/svg/icon-logo.svg"
+          src="/assets/svg/tredie-icon-logo.svg"
           alt="logo"
-          width={500}
-          height={500}
-          className="object-contain "
+          width={3563}
+          height={721}
+          className="h-full w-auto invert"
         />
       </div>
 
@@ -297,12 +304,21 @@ export default function Navbar() {
                     onMouseEnter={() => setHoveredIndex(i)}
                     onMouseLeave={() => setHoveredIndex(null)}
                   >
-                    <Link
-                      href={item.href}
-                      className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300 max-sm:text-[8vw] max-sm:text-left max-sm:text-black"
-                    >
-                      {item.title}
-                    </Link>
+                    {item.scrollTo ? (
+                      <button
+                        onClick={() => handleNavClick(item)}
+                        className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300 max-sm:text-[8vw] max-sm:text-left max-sm:text-black"
+                      >
+                        {item.title}
+                      </button>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300 max-sm:text-[8vw] max-sm:text-left max-sm:text-black"
+                      >
+                        {item.title}
+                      </Link>
+                    )}
                   </p>
                 ))}
               </div>

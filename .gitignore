@@ -3,6 +3,10 @@ CLAUDE.md
 PRD.md
 claude-design.md
 mockup/
+.agents/
+.claude/
+skills-lock.json
+iventions-main/
 
 # Build artifacts
 programs/target/

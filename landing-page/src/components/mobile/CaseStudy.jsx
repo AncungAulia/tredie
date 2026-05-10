@@ -16,39 +16,30 @@ const CaseStudy = () => {
   const slides = [
     {
       id: 1,
-      ticker: "BONK",
-      assetClass: "Meme Coin",
-      marketType: "Trend Auto-Spawn",
+      ticker: "BTC",
+      assetClass: "Crypto Token",
+      marketType: "Viral Moment",
       network: "Solana",
       testimonial:
-        '"BONK was spiking on every X feed. Tredie had the market live before any CEX touched it. Bought at 1.0x floor. Locked in at 3.2x after the second wave."',
-      role: "Crypto Trader",
-      company: "Tredie Community",
-      logo: "/assets/img/party-1.jpeg",
+        '"BTC was everywhere on social media. I saw it trending on X all morning. Opened Tredie, bought in early. By the afternoon the price had tripled."',
     },
     {
       id: 2,
-      ticker: "WIF",
-      assetClass: "Meme Token",
-      marketType: "Mindshare Spike",
+      ticker: "HANTA",
+      assetClass: "Trending Topic",
+      marketType: "Viral Moment",
       network: "Solana",
       testimonial:
-        '"WIF was all over Telegram. Elfa AI scored the spike and spawned the market in under 30 seconds. Floor tripled before most traders heard about it."',
-      role: "DeFi Trader",
-      company: "Early Adopter",
-      logo: "/assets/img/party-2.jpeg",
+        '"Hantavirus was everywhere on X and the news. I had no idea what it was, but everyone was talking about it. Opened Tredie, bought in. By evening the price had already moved."',
     },
     {
       id: 3,
       ticker: "AAPL",
-      assetClass: "Tokenized Equity",
-      marketType: "Mindshare Event",
+      assetClass: "Stock",
+      marketType: "Trending Event",
       network: "Solana",
       testimonial:
-        '"Apple keynote trended globally. Tredie\'s curve priced in the mindshare instantly. On-chain, 24/7, no waiting for a CEX to open."',
-      role: "Equity Trader",
-      company: "Tredie Community",
-      logo: "/assets/img/party-1.jpeg",
+        '"Apple\'s keynote was trending everywhere. I watched it live, opened Tredie right after, and bought. The price moved fast. No complicated steps, no waiting."',
     },
   ];
 
@@ -183,27 +174,6 @@ const CaseStudy = () => {
           {/* Company Logo */}
           
 
-          {/* Role and Company */}
-          <div className="text-center mb-6">
-            <p className="case-study-text text-[5vw] font-semibold text-nowrap  text-neutral-900">
-              {slides[currentSlide].role}
-            </p>
-            <p className="case-study-text text-[4vw] text-gray-600 my-4">
-              {slides[currentSlide].company}
-            </p>
-          </div>
-
-          <div className="flex justify-center mb-15">
-            <div className="w-28 h-20 relative">
-              <Image
-                src={slides[currentSlide].logo}
-                width={64}
-                height={64}
-                alt={slides[currentSlide].company}
-                className="w-full h-full object-cover rounded-lg"
-              />
-            </div>
-          </div>  
 
           <div className="flex justify-between">
            

@@ -26,11 +26,11 @@ const HighlightedProjects = () => {
     {
       id: 1,
       title: "BONK:",
-      subtitle: "Floor locked at 3.2x",
+      subtitle: "Price settled 3x higher",
       category: "Meme Coin",
       location: "Solana",
       description:
-        "BONK spiked on X. Elfa AI scored the mindshare in real time. Market spawned in 30 seconds. The floor never came back down.",
+        "BONK blew up on social media. A market opened on Tredie within 30 seconds. The price never dropped back down.",
       bgImage: "https://images.unsplash.com/photo-1624996379697-f01d168b1a52?auto=format&fit=crop&w=800&q=80",
     },
     {
@@ -40,27 +40,27 @@ const HighlightedProjects = () => {
       category: "Meme Token",
       location: "Solana",
       description:
-        "WIF went viral on Telegram. Tredie auto-spawned the market before any CEX listed it. Volume hit $200K in the first half hour.",
+        "WIF went viral on Telegram. Tredie opened a market before any exchange listed it. Volume hit $200K in the first half hour.",
       bgImage: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 3,
       title: "AAPL:",
-      subtitle: "Keynote priced in instantly",
-      category: "Tokenized Equity",
+      subtitle: "Price moved the moment it trended",
+      category: "Stock",
       location: "Solana",
       description:
-        "Apple keynote trended globally. Tredie's curve priced in the mindshare spike on-chain, 24/7. No waiting for a CEX to open.",
+        "Apple's keynote trended worldwide. Tredie had a market live 24/7. No waiting for an exchange to catch up.",
       bgImage: "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=800&q=80",
     },
     {
       id: 4,
       title: "GOLD:",
-      subtitle: "Commodity, on-chain",
+      subtitle: "Trade gold, anytime",
       category: "Commodity",
       location: "Solana",
       description:
-        "Gold surged on macro news. Tredie had a tradeable market live. No broker, no KYC, no weekend close.",
+        "Gold surged on the news. Tredie had a market live. No broker, no sign-up, no waiting for the market to open.",
       bgImage: "https://images.unsplash.com/photo-1611162618758-2a29a995354b?auto=format&fit=crop&w=800&q=80",
     },
     {
@@ -70,7 +70,7 @@ const HighlightedProjects = () => {
       category: "Meme Coin",
       location: "Solana",
       description:
-        "Doge trended globally. Tredie spawned the market before any CEX caught up. The attention floor held.",
+        "Doge trended worldwide. Tredie opened a market before any exchange caught up. The price held and kept climbing.",
       bgImage: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
     },
   ];

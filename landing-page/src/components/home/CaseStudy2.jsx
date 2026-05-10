@@ -10,36 +10,27 @@ gsap.registerPlugin(ScrollTrigger, SplitText)
 const CaseStudy2 = () => {
   const slides = [
     {
-      ticker: 'BONK',
-      assetClass: 'Meme Coin',
-      marketType: 'Trend Auto-Spawn',
+      ticker: 'BTC',
+      assetClass: 'Crypto Token',
+      marketType: 'Viral Moment',
       network: 'Solana',
-      quote: `"BONK was spiking on every X feed. Tredie had the market live before any CEX touched it. Bought at 1.0x floor. Locked in at 3.2x after the second wave."`,
-      name: "Crypto Trader",
-      org: "Tredie Community",
-      logo: "/assets/img/party-1.jpeg",
+      quote: `"BTC was everywhere on social media. I saw it trending on X all morning. Opened Tredie, bought in early. By the afternoon the price had tripled."`,
       image: "/assets/img/party-2.jpeg",
     },
     {
-      ticker: 'WIF',
-      assetClass: 'Meme Token',
-      marketType: 'Mindshare Spike',
+      ticker: 'HANTA',
+      assetClass: 'Trending Topic',
+      marketType: 'Viral Moment',
       network: 'Solana',
-      quote: `"WIF was all over Telegram. Elfa AI scored the spike and spawned the market in under 30 seconds. Floor tripled before most traders heard about it."`,
-      name: "DeFi Trader",
-      org: "Early Adopter",
-      logo: "/assets/img/party-2.jpeg",
+      quote: `"Hantavirus was everywhere on X and the news. I had no idea what it was, but everyone was talking about it. Opened Tredie, bought in. By evening the price had already moved."`,
       image: "/assets/img/party-1.jpeg",
     },
     {
       ticker: 'AAPL',
-      assetClass: 'Tokenized Equity',
-      marketType: 'Mindshare Event',
+      assetClass: 'Attention Market',
+      marketType: 'Trending Event',
       network: 'Solana',
-      quote: `"Apple keynote trended globally. Tredie's curve priced in the mindshare instantly. On-chain, 24/7, no waiting for a CEX to open."`,
-      name: "Equity Trader",
-      org: "Tredie Community",
-      logo: "/assets/img/party-1.jpeg",
+      quote: `"Apple's keynote was everywhere. I watched it live, opened Tredie the moment attention peaked, and got in. Price moved fast. No waiting, no guesswork."`,
       image: "/assets/img/party-2.jpeg",
     },
   ]
@@ -217,15 +208,6 @@ const CaseStudy2 = () => {
             </div>
 
             <div className='flex justify-center items-center gap-[8vw] w-[60%]'>
-              <div className='text-center w-[50%]'>
-                <p className='font-semibold slider-content text-[1vw]'>
-                  {slides[current].name}
-                </p>
-                <p className='text-[0.9vw] slider-content opacity-70'>
-                  {slides[current].org}
-                </p>
-              </div>
-
               <div className='w-[50%]'>
                 <img
                   src={slides[current].image}

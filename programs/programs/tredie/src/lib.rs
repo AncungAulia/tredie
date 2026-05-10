@@ -32,6 +32,8 @@ pub mod tredie {
         base_virtual_sol: u64,
         virtual_token_supply: u64,
         elasticity_bps: u32,
+        name: String,
+        uri: String,
     ) -> Result<()> {
         instructions::create_market::handler(
             ctx,
@@ -41,6 +43,8 @@ pub mod tredie {
             base_virtual_sol,
             virtual_token_supply,
             elasticity_bps,
+            name,
+            uri,
         )
     }
 
