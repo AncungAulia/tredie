@@ -15,12 +15,13 @@ resolveLinkRoutes.post("/", async (c) => {
   const metadata = await linkResolver.resolve(body.data.url);
   const { symbol, confidence } = await symbolExtractor.extract(metadata);
 
-  let suggestedMarketPath: string | null = null;
+  let suggested_market_path: string | null = null;
   if (symbol) {
     const market = await db.getMarketByIdentifier(symbol);
-    suggestedMarketPath = market
-      ? `/markets/${encodeURIComponent(symbol)}`
-      : `/markets/${encodeURIComponent(symbol)}?create=true`;
+    if (market) {
+      const base = market.asset_class === 6 ? "/topics" : "/tokens";
+      suggested_market_path = `${base}/${encodeURIComponent(symbol)}`;
+    }
     await db.cacheLinkResolution(
       body.data.url,
       metadata.platform,
@@ -31,8 +32,8 @@ resolveLinkRoutes.post("/", async (c) => {
 
   return c.json({
     metadata,
-    extractedSymbol: symbol,
+    extracted_symbol: symbol,
     confidence,
-    suggestedMarketPath,
+    suggested_market_path,
   });
 });
