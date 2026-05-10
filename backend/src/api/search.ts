@@ -21,10 +21,11 @@ searchRoutes.get("/", async (c) => {
       jsonSafe({
         suggestions: [
           {
-            type: "ca",
-            value: q,
-            display: `${meta?.symbol ?? "Unknown"} · ${q.slice(0, 6)}...${q.slice(-4)}`,
-            marketPda: market?.pda,
+            identifier: q,
+            display_name: meta?.symbol ?? null,
+            asset_class: market?.asset_class ?? 5,
+            pda: market?.pda ?? null,
+            suggestion_type: "ca_suggestion" as const,
           },
         ],
       }),
@@ -39,16 +40,11 @@ searchRoutes.get("/", async (c) => {
   `;
 
   const suggestions = markets.map((m) => ({
-    type:
-      m.asset_class === 5 ? "ca"
-      : m.asset_class === 6 ? "trend"
-      : "symbol",
-    value: m.identifier,
-    display: m.display_name
-      ? `${m.identifier} · ${m.display_name}`
-      : m.identifier,
-    marketPda: m.pda,
-    ratchetBps: m.ratchet_multiplier_bps,
+    identifier: m.identifier,
+    display_name: m.display_name ?? null,
+    asset_class: m.asset_class,
+    pda: m.pda ?? null,
+    suggestion_type: "market" as const,
   }));
   return c.json({ suggestions });
 });

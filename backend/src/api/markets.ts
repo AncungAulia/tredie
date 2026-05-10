@@ -88,7 +88,9 @@ marketsRoutes.get("/", async (c) => {
   const includeSparkline = c.req.query("sparkline") !== "false";
 
   const sortCol =
-    sortBy === "volume" ? sql`real_sol_reserves` : sql`current_mindshare_bps`;
+    sortBy === "volume" ? sql`real_sol_reserves` :
+    sortBy === "created_at" ? sql`created_at` :
+    sql`current_mindshare_bps`;
   const dir = order === "ASC" ? sql`ASC` : sql`DESC`;
 
   // Resolve asset_class filter. assetClass takes precedence if both given.
