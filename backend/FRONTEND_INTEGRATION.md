@@ -20,7 +20,7 @@ This doc reflects the **actual backend code** at HEAD (`d7908e3`), not the plann
 | AI thesis card | `GET /api/v1/markets/:identifier/ai-context` | ⚠️ free-tier 502 |
 | Trade estimate preview | `POST /api/v1/markets/estimate` | ✅ (server-side AMM) |
 | Trade buy/sell | `POST /api/v1/markets/prepare-trade` | ✅ + slippage protection |
-| Create market on demand | `POST /api/v1/markets/prepare-create` | ✅ |
+| Create market on demand | `POST /api/v1/markets/prepare-create` | ⚠️ admin/internal only — see §2.10 |
 | Search bar | `GET /api/v1/search?q=` | ✅ |
 | Resolve pasted link | `POST /api/v1/resolve-link` | ✅ |
 | Trending tokens | `GET /api/v1/trending/tokens` | ✅ |
@@ -569,14 +569,21 @@ Backend Helius webhook indexes the trade automatically on confirmation; the new 
 
 > **SlippageExceeded on-chain**: if the actual execution would deliver less than `min_tokens_out`, the SC throws `TredieError::SlippageExceeded`. Frontend should catch this from the RPC `confirmTransaction` error and show "trade failed: price moved beyond slippage tolerance, retry".
 
-### 2.10 Prepare create (idempotent spawn)
+### 2.10 Prepare create (admin / internal only)
 
 ```http
 POST /markets/prepare-create
 Content-Type: application/json
 ```
 
-Used when user types a ticker not in the system or pastes a link the backend resolves to a brand-new market. Backend spawns the on-chain Market account + SPL mint + Metaplex metadata in one tx.
+> **⚠️ NOT a user-facing endpoint.** All public market spawning goes through the AI gating pipeline (TrendingPoller cron → Gemini judge → spawn). End users never create markets directly.
+>
+> This endpoint exists for:
+> - Admin testing / demos (force-spawn a specific identifier)
+> - Backfilling markets the AI judge missed
+> - Internal use by `/admin/candidates/:id/approve` (manual override of an AI-rejected candidate)
+
+Backend spawns the on-chain Market account + SPL mint + Metaplex metadata in one tx, bypassing AI gating.
 
 ```ts
 Request: {
@@ -586,11 +593,9 @@ Request: {
   assetClass?: 0..6,             // default 0 (crypto)
   source?: 'user_search' | 'user_link_paste' | 'auto_spawn',
   displayName?: string,          // optional, max 64 chars. Used as the
-                                 // on-chain Metaplex `name` field (the
-                                 // human-readable label wallets show
-                                 // alongside the symbol).
-  imageUrl?: string,             // optional, must be a valid URL
-  sourceUrl?: string,            // optional, valid URL
+                                 // on-chain Metaplex `name` field.
+  imageUrl?: string,
+  sourceUrl?: string,
   sourceMetadata?: Record<string, unknown>
 }
 
@@ -600,20 +605,7 @@ Response 200: {
 }
 ```
 
-**Recommended pattern** for FE create-market form:
-```ts
-await api.post('markets/prepare-create', {
-  json: {
-    identifier: 'aBTC',
-    assetClass: 0,
-    displayName: 'Bitcoin',     // wallet shows "aBTC · Bitcoin"
-    imageUrl: 'https://.../btc.png',  // optional, surfaces in market list
-    source: 'user_search',
-  }
-});
-```
-
-> **Bypasses AI gating by design** — user-initiated intent is explicit. Auto-spawn from Elfa polling goes through the AI gate (`/admin/poll-trending` flow).
+**Frontend integration**: don't wire this up to a user button. If you build an admin panel later, it can call this directly. For end-user flows, route through the search → AI judge spawns automatically on next cron tick.
 
 ### 2.11 Search
 

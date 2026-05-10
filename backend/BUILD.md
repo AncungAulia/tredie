@@ -2415,7 +2415,7 @@ export async function indexTransaction(tx: {
 | GET | `/api/v1/markets/:identifier/ai-context` | Elfa Chat AI thesis (free tier returns 502) |
 | POST | `/api/v1/markets/estimate` | Preview buy/sell output via server-side AMM mirror |
 | POST | `/api/v1/markets/prepare-trade` | Build unsigned tx + bake slippage protection from `slippageBps` |
-| POST | `/api/v1/markets/prepare-create` | Idempotent market spawn (bypasses AI gating, user-initiated) |
+| POST | `/api/v1/markets/prepare-create` | **Admin/internal only.** Idempotent market spawn bypassing AI gating. Used by admin tooling + `/admin/candidates/:id/approve`. NOT exposed to end users — public spawn flow is AI cron only. |
 | GET | `/api/v1/trending/tokens` | Cached Elfa trending-tokens last 20 min |
 | GET | `/api/v1/trending/cas/:platform` | Trending CAs for `twitter` or `telegram` |
 | GET | `/api/v1/search?q=` | Type-ahead suggestions (ticker / CA / trend) |
