@@ -1,11 +1,13 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import { gsap } from "gsap";
 import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { resolveLink } from "@/lib/api/search";
 
 const URL_PATTERN = /^https?:\/\//i;
+const PLACEHOLDERS = ["Search ticker", "Search contract", "Paste a link"];
 
 export default function SearchBar() {
   const router = useRouter();
@@ -13,6 +15,20 @@ export default function SearchBar() {
   const [open, setOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const phInnerRef = useRef<HTMLDivElement>(null);
+  const phIdxRef = useRef(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      phIdxRef.current = (phIdxRef.current + 1) % PLACEHOLDERS.length;
+      gsap.to(phInnerRef.current, {
+        yPercent: -(phIdxRef.current / PLACEHOLDERS.length) * 100,
+        duration: 0.45,
+        ease: "power2.inOut",
+      });
+    }, 2500);
+    return () => clearInterval(id);
+  }, []);
 
   const { data: results = [] } = useSearch(query);
 
@@ -47,14 +63,16 @@ export default function SearchBar() {
     }
 
     if (results[0]) {
-      router.push(`/tokens/${encodeURIComponent(results[0].identifier)}`);
+      const path = results[0].asset_class === 6 ? "/topics" : "/tokens";
+      router.push(`${path}/${encodeURIComponent(results[0].identifier)}`);
       setQuery("");
       setOpen(false);
     }
   }
 
-  function handleSelect(identifier: string) {
-    router.push(`/tokens/${encodeURIComponent(identifier)}`);
+  function handleSelect(identifier: string, assetClass: number) {
+    const path = assetClass === 6 ? "/topics" : "/tokens";
+    router.push(`${path}/${encodeURIComponent(identifier)}`);
     setQuery("");
     setOpen(false);
   }
@@ -68,23 +86,39 @@ export default function SearchBar() {
         <input
           type="text"
           value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-          }}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder={resolving ? "Resolving link…" : "Search ticker, contract, or paste a link..."}
+          placeholder=""
+          aria-label="Search"
           disabled={resolving}
-          className="block w-full pl-10 pr-3 py-2 border border-white/[0.07] rounded-full bg-white/[0.04] text-sm placeholder-white/40 text-white focus:outline-none focus:bg-white/[0.06] focus:border-[rgba(156,147,232,0.30)] transition-colors disabled:opacity-50"
+          className="block w-full pl-10 pr-3 py-2 border border-white/[0.07] rounded-full bg-white/[0.04] text-sm text-white focus:outline-none focus:bg-white/[0.06] focus:border-[rgba(156,147,232,0.30)] transition-colors disabled:opacity-50"
         />
+        {/* Animated placeholder overlay */}
+        {!query && (
+          <div className="absolute inset-y-0 left-10 right-3 flex items-center pointer-events-none">
+            {resolving ? (
+              <span className="text-white/40 text-sm">Resolving link…</span>
+            ) : (
+              <div className="overflow-hidden h-5">
+                <div ref={phInnerRef} className="flex flex-col">
+                  {PLACEHOLDERS.map((text, i) => (
+                    <span key={i} className="text-white/40 text-sm whitespace-nowrap leading-5 h-5 flex items-center">
+                      {text}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </form>
 
       {open && query.trim().length >= 2 && results.length > 0 && (
         <div className="absolute top-full mt-2 w-full bg-[#111] border border-white/[0.10] rounded-xl shadow-xl z-50 overflow-hidden">
-          {results.slice(0, 6).map((r) => (
+          {results.slice(0, 6).map((r, i) => (
             <button
-              key={r.identifier}
-              onClick={() => handleSelect(r.identifier)}
+              key={r.identifier ?? i}
+              onClick={() => handleSelect(r.identifier, r.asset_class)}
               className="w-full flex items-center justify-between px-4 py-3 hover:bg-white/[0.05] transition-colors text-left"
             >
               <div className="flex flex-col gap-0.5">

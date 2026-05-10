@@ -1,10 +1,12 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import Logo from "./Logo";
 import SearchBar from "./SearchBar";
 import ConnectButton from "./ConnectButton";
+import MobileSearch from "./MobileSearch";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
 
 const navLinks = [
   { href: "/topics", label: "Topics" },
@@ -14,13 +16,14 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const activeIndex = navLinks.findIndex(
     (l) => pathname === l.href || pathname.startsWith(l.href + "/")
   );
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#09090B]/80 backdrop-blur-md border-b border-white/[0.05] flex items-center px-8 md:px-12 gap-8">
+    <header className="fixed top-0 left-0 right-0 z-50 h-16 bg-[#09090B]/80 backdrop-blur-md border-b border-white/[0.05] flex items-center px-4 md:px-12 gap-8">
       <Logo />
 
       {/* Nav tabs with sliding pill */}
@@ -56,10 +59,18 @@ export default function Header() {
         <SearchBar />
       </div>
 
-      {/* Right side: Connect Wallet */}
-      <div className="flex items-center gap-4 shrink-0 ml-auto">
+      {/* Right side: search icon (mobile) + Connect Wallet */}
+      <div className="flex items-center gap-2 shrink-0 ml-auto">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="md:hidden flex items-center justify-center w-9 h-9 rounded-full text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors"
+        >
+          <Search size={18} />
+        </button>
         <ConnectButton />
       </div>
+
+      <MobileSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
   );
 }
