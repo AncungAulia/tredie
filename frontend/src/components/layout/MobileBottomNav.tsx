@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TrendingUp, BarChart2, Briefcase } from "lucide-react";
+import { Flame, Coins, Wallet } from "lucide-react";
 
 const items = [
-  { href: "/topics", Icon: TrendingUp },
-  { href: "/tokens", Icon: BarChart2 },
-  { href: "/portfolio", Icon: Briefcase },
+  { href: "/topics", Icon: Flame },
+  { href: "/tokens", Icon: Coins },
+  { href: "/portfolio", Icon: Wallet },
 ];
 
 export default function MobileBottomNav() {
