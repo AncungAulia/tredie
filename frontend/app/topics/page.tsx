@@ -1,5 +1,5 @@
-import Trends from "@/modules/trends/Trends";
+import Topics from "@/modules/topics/Topics";
 
 export default function TopicsPage() {
-  return <Trends />;
+  return <Topics />;
 }

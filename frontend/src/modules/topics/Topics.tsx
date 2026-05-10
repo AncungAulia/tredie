@@ -1,5 +1,5 @@
 "use client";
-import { useId } from "react";
+import { useId, useRef, useState, useEffect } from "react";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
@@ -33,6 +33,20 @@ function MiniLineChart({
   const id = useId();
   const gradientId = `grad-${id.replace(/:/g, "")}`;
 
+  const lineRef = useRef<SVGPolylineElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const el = lineRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.1 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   return (
     <svg
       viewBox={`0 0 ${w} ${h}`}
@@ -48,17 +62,32 @@ function MiniLineChart({
       <polygon
         points={`0,${h} ${points} ${w},${h}`}
         fill={`url(#${gradientId})`}
+        style={{ opacity: visible ? 1 : 0, transition: "opacity 0.3s ease-out" }}
       />
       <polyline
+        ref={lineRef}
         points={points}
         fill="none"
         stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
+        style={{
+          strokeDasharray: 1000,
+          strokeDashoffset: visible ? 0 : 1000,
+          transition: visible ? "stroke-dashoffset 2.5s ease-out" : "none",
+        }}
       />
     </svg>
   );
+}
+
+function formatPrice(lamports: number): string {
+  const sol = lamports / 1e9;
+  if (sol < 0.0001) return sol.toFixed(7);
+  if (sol < 0.01) return sol.toFixed(5);
+  if (sol < 1) return sol.toFixed(4);
+  return sol.toFixed(2);
 }
 
 function formatVolume(lamports: string): string {
@@ -68,7 +97,7 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
-function TrendCard({ market }: { market: Market }) {
+function TopicCard({ market }: { market: Market }) {
   const mindshare = market.current_mindshare_bps / 100;
   const currentPrice =
     Number(market.virtual_token_supply) - Number(market.tokens_minted) > 0
@@ -101,9 +130,8 @@ function TrendCard({ market }: { market: Market }) {
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">
-              Topics
+              Trend
             </span>
-
             <span className="text-xl font-mono font-bold">
               {mindshare.toFixed(1)}%
             </span>
@@ -118,6 +146,11 @@ function TrendCard({ market }: { market: Market }) {
               {Math.abs(sparklineDelta).toFixed(1)}%
             </span>
           </div>
+        </div>
+
+        <div className="flex items-baseline gap-2">
+          <span className="text-white text-2xl font-mono font-bold">{formatPrice(currentPrice)}</span>
+          <span className="text-white/30 text-sm font-mono">SOL</span>
         </div>
 
         <MiniLineChart data={sparkline} />
@@ -140,7 +173,7 @@ function TrendCard({ market }: { market: Market }) {
   );
 }
 
-function MobileTrendCard({ market }: { market: Market }) {
+function MobileTopicCard({ market }: { market: Market }) {
   const mindshare = market.current_mindshare_bps / 100;
   const currentPrice =
     Number(market.virtual_token_supply) - Number(market.tokens_minted) > 0
@@ -164,10 +197,9 @@ function MobileTrendCard({ market }: { market: Market }) {
   return (
     <Link
       href={`/topics/${encodeURIComponent(market.identifier)}`}
-      className="block h-dvh snap-start"
+      className="block h-dvh snap-start snap-always"
     >
-      <div className="h-full flex flex-col pt-20 px-6">
-        {/* Market info */}
+      <div className="h-full flex flex-col pt-28 px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-bold text-white leading-tight truncate">
@@ -185,12 +217,15 @@ function MobileTrendCard({ market }: { market: Market }) {
           </div>
         </div>
 
-        {/* Large sparkline */}
+        <div className="flex items-baseline gap-2 mt-3">
+          <span className="text-3xl font-mono font-bold text-white">{formatPrice(currentPrice)}</span>
+          <span className="text-white/30 font-mono">SOL</span>
+        </div>
+
         <div className="flex-1 min-h-0 mt-4">
           <MiniLineChart data={sparkline} color={color} tall />
         </div>
 
-        {/* Bottom stats */}
         <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-4">
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-white/30 uppercase tracking-wider">Vol</span>
@@ -203,46 +238,129 @@ function MobileTrendCard({ market }: { market: Market }) {
           </div>
         </div>
 
-        {/* Trade button */}
         <div className="py-4">
           <div className="w-full h-12 rounded-xl bg-[#00FF47] flex items-center justify-center font-bold text-sm text-black">
             Buy {ticker}
           </div>
         </div>
 
-        {/* Spacer for bottom nav */}
         <div className="h-16 shrink-0" />
       </div>
     </Link>
   );
 }
 
-export default function Trends() {
-  const { data: markets = [], isLoading } = useMarkets({
+type TopicCategory = "Trending" | "Latest";
+
+export default function Topics() {
+  const [activeCategory, setActiveCategory] = useState<TopicCategory>("Trending");
+  const [showToggle, setShowToggle] = useState(true);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
+  const lastScrollTop = useRef(0);
+  const isChangingCategory = useRef(false);
+
+  useEffect(() => {
+    const el = mobileScrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      if (isChangingCategory.current) return;
+      const st = el.scrollTop;
+      if (st > lastScrollTop.current) setShowToggle(false);
+      else if (st < lastScrollTop.current) setShowToggle(true);
+      lastScrollTop.current = st;
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const { data: trendingMarkets = [], isLoading: loadingTrending } = useMarkets({
     type: "topic",
     sortBy: "mindshare",
     limit: 50,
     sparkline: true,
   });
 
+  const { data: newestMarkets = [], isLoading: loadingNewest } = useMarkets({
+    type: "topic",
+    sortBy: "created_at",
+    order: "desc",
+    limit: 50,
+    sparkline: true,
+  });
+
+  const isLoading = activeCategory === "Trending" ? loadingTrending : loadingNewest;
+  const markets = activeCategory === "Trending" ? trendingMarkets : newestMarkets;
+
+  const categories: TopicCategory[] = ["Trending", "Latest"];
+
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
+      lastScrollTop.current = 0;
+    });
+  }, [activeCategory]);
+
+  function handleCategoryChange(cat: TopicCategory) {
+    isChangingCategory.current = true;
+    setTimeout(() => { isChangingCategory.current = false; }, 600);
+    setActiveCategory(cat);
+    setShowToggle(true);
+  }
+
+  const activeIdx = categories.indexOf(activeCategory);
+
+  const categoryToggle = (mobile: boolean) => (
+    <div className={mobile
+      ? `md:hidden fixed top-[4.25rem] left-0 right-0 z-20 flex justify-center py-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
+      : "flex items-center"
+    }>
+      <div className={`relative flex p-1 rounded-full border ${mobile ? "bg-white/[0.08] backdrop-blur-md border-white/[0.08]" : "bg-white/[0.04] border-white/[0.07]"}`}>
+        <span
+          aria-hidden="true"
+          className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+          style={{
+            left: "0.25rem",
+            width: `calc((100% - 0.5rem) / ${categories.length})`,
+            transform: `translateX(${activeIdx * 100}%)`,
+          }}
+        />
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            onClick={() => handleCategoryChange(cat)}
+            className={`relative z-10 flex-1 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
+              mobile
+                ? `px-5 py-1.5 text-xs ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
+                : `px-6 py-2 text-sm ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <>
-      {/* Mobile: TikTok-style full-screen snap scroll */}
-      <div className="md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory">
+      {categoryToggle(true)}
+
+      <div ref={mobileScrollRef} className="md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
             ))
           : markets.map((market) => (
-              <MobileTrendCard key={market.identifier} market={market} />
+              <MobileTopicCard key={market.identifier} market={market} />
             ))}
       </div>
 
-      {/* Desktop: grid layout */}
       <div className="hidden md:flex flex-col gap-8 w-full">
         <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-display font-bold">Trends</h1>
+          <h1 className="text-3xl font-display font-bold">Topics</h1>
         </div>
+
+        {categoryToggle(false)}
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -252,12 +370,12 @@ export default function Trends() {
           </div>
         ) : markets.length === 0 ? (
           <div className="w-full py-24 flex flex-col items-center justify-center text-white/30">
-            <p className="text-base">No trends found.</p>
+            <p className="text-base">No topics found.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {markets.map((market) => (
-              <TrendCard key={market.identifier} market={market} />
+              <TopicCard key={market.identifier} market={market} />
             ))}
           </div>
         )}
