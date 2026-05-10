@@ -110,6 +110,7 @@ marketsRoutes.get("/", async (c) => {
   const sortCol =
     sortBy === "volume" ? sql`real_sol_reserves` :
     sortBy === "created_at" ? sql`created_at` :
+    sortBy === "market_cap" ? sql`(CAST(base_virtual_sol AS numeric) + CAST(real_sol_reserves AS numeric)) * CAST(tokens_minted AS numeric) / NULLIF(CAST(virtual_token_supply AS numeric) - CAST(tokens_minted AS numeric), 0)` :
     sql`current_mindshare_bps`;
   const dir = order === "ASC" ? sql`ASC` : sql`DESC`;
 

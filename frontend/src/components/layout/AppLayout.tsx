@@ -13,10 +13,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isHideNav = pathname.startsWith("/tokens/") || pathname.startsWith("/topics/");
 
   return (
-    <div className="flex flex-col min-h-screen overflow-x-hidden">
+    <div className="flex flex-col min-h-screen [overflow-x:clip]">
       <Header />
       <motion.main
-        style={{ x }}
+        style={isHideNav ? undefined : { x }}
         className={`flex-1 pt-24 md:pb-12 px-8 md:px-12 w-full max-w-[1440px] mx-auto ${isHideNav ? "pb-8" : "pb-20"}`}
       >
         {children}

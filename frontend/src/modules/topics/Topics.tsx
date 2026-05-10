@@ -235,7 +235,7 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
   );
 }
 
-type TopicCategory = "Trending" | "Latest";
+type TopicCategory = "Trending" | "Latest" | "Top";
 
 export default function Topics() {
   const [activeCategory, setActiveCategory] = useState<TopicCategory>("Trending");
@@ -273,14 +273,28 @@ export default function Topics() {
     sparkline: true,
   });
 
+  const { data: topMcapData, isLoading: loadingTopMcap } = useMarkets({
+    type: "topic",
+    sortBy: "market_cap",
+    limit: 50,
+    sparkline: true,
+  });
+
   const trendingMarkets = trendingData?.markets ?? [];
   const newestMarkets = newestData?.markets ?? [];
-  const solPriceUsd = (trendingData ?? newestData)?.solPriceUsd ?? 0;
+  const topMcapMarkets = topMcapData?.markets ?? [];
+  const solPriceUsd = (trendingData ?? newestData ?? topMcapData)?.solPriceUsd ?? 0;
 
-  const isLoading = activeCategory === "Trending" ? loadingTrending : loadingNewest;
-  const markets = activeCategory === "Trending" ? trendingMarkets : newestMarkets;
+  const isLoading =
+    activeCategory === "Trending" ? loadingTrending :
+    activeCategory === "Latest" ? loadingNewest :
+    loadingTopMcap;
+  const markets =
+    activeCategory === "Trending" ? trendingMarkets :
+    activeCategory === "Latest" ? newestMarkets :
+    topMcapMarkets;
 
-  const categories: TopicCategory[] = ["Trending", "Latest"];
+  const categories: TopicCategory[] = ["Trending", "Latest", "Top"];
 
   useEffect(() => {
     requestAnimationFrame(() => {

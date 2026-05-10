@@ -245,6 +245,14 @@ export default function TokenDetail({ id }: { id: string }) {
 
   const TOKEN_DECIMALS = 1e6;
   const parsedAmount = parseFloat(amount || "0");
+
+  const inputError = (() => {
+    if (!authenticated || !(parsedAmount > 0)) return null;
+    if (tradeType === "buy" && parsedAmount > solBalanceSol) return "Insufficient SOL balance";
+    if (tradeType === "sell" && parsedAmount > tokenBalanceUi) return "Insufficient token balance";
+    return null;
+  })();
+
   // buy: amount is SOL → estimate tokens out; sell: amount is tokens → estimate SOL out
   // pricePerToken = SOL per human token (bukan per raw token)
   // buy:  SOL ÷ (SOL/token) = token
@@ -590,6 +598,10 @@ export default function TokenDetail({ id }: { id: string }) {
               </span>
             </div>
 
+            {inputError && (
+              <p className="text-[#EF4444] text-xs -mt-2">{inputError}</p>
+            )}
+
             <div className="grid grid-cols-4 gap-2">
               {[25, 50, 75, 100].map((pct) => (
                 <button
@@ -635,6 +647,7 @@ export default function TokenDetail({ id }: { id: string }) {
             ) : (
               <button
                 disabled={
+                  !!inputError ||
                   status === "preparing" ||
                   status === "signing" ||
                   status === "success"
@@ -656,7 +669,7 @@ export default function TokenDetail({ id }: { id: string }) {
                     });
                   }
                 }}
-                className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed ${
+                className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                   status === "success"
                     ? "bg-white/10 text-white/60"
                     : tradeType === "buy"
@@ -780,6 +793,10 @@ export default function TokenDetail({ id }: { id: string }) {
                 </span>
               </div>
 
+              {inputError && (
+                <p className="text-[#EF4444] text-xs -mt-2">{inputError}</p>
+              )}
+
               <div className="grid grid-cols-4 gap-2">
                 {[25, 50, 75, 100].map((pct) => (
                   <button
@@ -825,6 +842,7 @@ export default function TokenDetail({ id }: { id: string }) {
               ) : (
                 <button
                   disabled={
+                    !!inputError ||
                     status === "preparing" ||
                     status === "signing" ||
                     status === "success"
@@ -846,7 +864,7 @@ export default function TokenDetail({ id }: { id: string }) {
                       });
                     }
                   }}
-                  className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed ${
+                  className={`w-full h-[50px] overflow-hidden rounded-xl font-bold text-sm transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                     status === "success"
                       ? "bg-white/10 text-white/60"
                       : tradeType === "buy"
