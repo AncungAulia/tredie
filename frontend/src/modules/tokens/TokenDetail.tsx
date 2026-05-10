@@ -74,6 +74,15 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
+function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number | undefined): string {
+  if (!fdvLamports || !solPriceUsd) return "—";
+  const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  if (usd >= 1) return `$${usd.toFixed(0)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
 export default function TokenDetail({ id }: { id: string }) {
   const identifier = decodeURIComponent(id);
 
@@ -317,7 +326,7 @@ export default function TokenDetail({ id }: { id: string }) {
             </div>
             <div className="flex flex-col">
               <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
-                {formatPrice(pricePerToken * tokensMinted / 1e6)} SOL
+                {formatMcapUsd(market.stats.fdv_lamports, market.stats.sol_price_usd)}
               </span>
               <span className="text-white/30 text-[11px] mt-0.5">market cap</span>
             </div>

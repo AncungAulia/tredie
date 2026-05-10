@@ -331,6 +331,8 @@ marketsRoutes.get("/:identifier", async (c) => {
       : 0,
   }));
 
+  const solPriceUsd = await fetchSolPriceUsd();
+
   return c.json(
     jsonSafe({
       market,
@@ -346,6 +348,7 @@ marketsRoutes.get("/:identifier", async (c) => {
         market_cap_lamports: econ.market_cap_lamports,
         fdv_lamports: econ.fdv_lamports,
         liquidity_lamports: econ.liquidity_lamports,
+        sol_price_usd: solPriceUsd,
       },
     }),
   );

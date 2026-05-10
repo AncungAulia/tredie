@@ -60,6 +60,8 @@ export interface MarketDetail extends Market {
     volume_24h_lamports: string;
     trade_count_24h: string;
     holders_count: string;
+    fdv_lamports?: string;
+    sol_price_usd?: number;
   };
 }
 
