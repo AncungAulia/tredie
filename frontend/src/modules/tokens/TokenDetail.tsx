@@ -267,7 +267,7 @@ export default function TokenDetail({ id }: { id: string }) {
           <ArrowLeft size={18} />
           <span className="text-sm">Back</span>
         </Link>
-        <span className="text-white font-semibold text-sm line-clamp-2 flex-1 leading-snug">{label}</span>
+        <span className="text-white font-semibold text-lg line-clamp-2 flex-1 leading-snug">{label}</span>
       </div>
 
       {/* Header */}

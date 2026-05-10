@@ -97,9 +97,8 @@ function MobileTokenCard({ market }: { market: Market }) {
   const price = spotPriceSol(market);
   const mindshare = market.current_mindshare_bps / 100;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
-  const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
-  const currentMcap = price * Number(market.tokens_minted);
-  const sparkline = rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(currentMcap);
+  const rawSparkline = (market.price_sparkline_24h ?? []);
+  const sparkline = rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(price);
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -299,12 +298,11 @@ export default function Tokens() {
               const mindshare = market.current_mindshare_bps / 100;
               const price = spotPriceSol(market);
               const ratchet = market.ratchet_multiplier_bps / 10_000;
-              const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
-              const currentMcap = price * Number(market.tokens_minted);
+              const rawSparkline = (market.price_sparkline_24h ?? []);
               const sparkline =
                 rawSparkline.length >= 2
                   ? rawSparkline
-                  : Array(2).fill(currentMcap);
+                  : Array(2).fill(price);
               const sparklineDelta =
                 rawSparkline.length >= 2 && rawSparkline[0] !== 0
                   ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100

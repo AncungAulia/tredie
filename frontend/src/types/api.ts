@@ -19,6 +19,7 @@ export interface Market {
   holders_count: string;
   sparkline_24h: number[];
   market_cap_sparkline_24h: string[];
+  price_sparkline_24h: number[];
   created_at: string;
 }
 

@@ -104,12 +104,11 @@ function TopicCard({ market }: { market: Market }) {
       ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
         (Number(market.virtual_token_supply) - Number(market.tokens_minted))
       : 0;
-  const currentMcap = currentPrice * Number(market.tokens_minted);
-  const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
+  const rawSparkline = (market.price_sparkline_24h ?? []);
   const sparkline =
     rawSparkline.length >= 2
       ? rawSparkline
-      : Array(2).fill(currentMcap);
+      : Array(2).fill(currentPrice);
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -180,10 +179,9 @@ function MobileTopicCard({ market }: { market: Market }) {
       ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
         (Number(market.virtual_token_supply) - Number(market.tokens_minted))
       : 0;
-  const currentMcap = currentPrice * Number(market.tokens_minted);
-  const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
+  const rawSparkline = (market.price_sparkline_24h ?? []);
   const sparkline =
-    rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(currentMcap);
+    rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(currentPrice);
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
