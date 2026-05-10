@@ -198,14 +198,28 @@ export default function Tokens() {
     sparkline: true,
   });
 
+  const { data: topMcapData, isLoading: loadingTopMcap } = useMarkets({
+    type: "token",
+    sortBy: "market_cap",
+    limit: 50,
+    sparkline: true,
+  });
+
   const trendingMarkets = trendingData?.markets ?? [];
   const newestMarkets = newestData?.markets ?? [];
-  const solPriceUsd = (trendingData ?? newestData)?.solPriceUsd ?? 0;
+  const topMcapMarkets = topMcapData?.markets ?? [];
+  const solPriceUsd = (trendingData ?? newestData ?? topMcapData)?.solPriceUsd ?? 0;
 
-  const isLoading = activeTokenCategory === "Trending" ? loadingTrending : loadingNewest;
-  const filtered = activeTokenCategory === "Trending" ? trendingMarkets : newestMarkets;
+  const isLoading =
+    activeTokenCategory === "Trending" ? loadingTrending :
+    activeTokenCategory === "Latest" ? loadingNewest :
+    loadingTopMcap;
+  const filtered =
+    activeTokenCategory === "Trending" ? trendingMarkets :
+    activeTokenCategory === "Latest" ? newestMarkets :
+    topMcapMarkets;
 
-  const categories: TokenCategory[] = ["Trending", "Latest"];
+  const categories: TokenCategory[] = ["Trending", "Latest", "Top"];
 
   useEffect(() => {
     requestAnimationFrame(() => {

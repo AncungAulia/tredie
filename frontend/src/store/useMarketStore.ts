@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type TokenCategory = "Trending" | "Latest";
+export type TokenCategory = "Trending" | "Latest" | "Top";
 
 interface MarketUIState {
   activeTokenCategory: TokenCategory;

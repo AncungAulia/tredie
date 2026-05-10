@@ -2,7 +2,7 @@ import { apiClient } from "./client";
 import type { Market, MarketDetail, OHLCResponse, OHLCInterval } from "@/types/api";
 
 export type MarketType = "token" | "topic";
-export type MarketSortBy = "mindshare" | "volume" | "created_at";
+export type MarketSortBy = "mindshare" | "volume" | "created_at" | "market_cap";
 export type SortOrder = "asc" | "desc";
 
 export interface ListMarketsParams {
