@@ -56,9 +56,14 @@ export default function ConnectButton() {
   if (!mounted || !ready) {
     label = "Connect Wallet";
   } else if (authenticated) {
-    const solanaWallet = wallets[0];
-    if (solanaWallet) {
-      label = truncate(solanaWallet.address);
+    const activeAddress = wallets[0]?.address;
+    const linkedSolanaAddress = (user?.linkedAccounts as any[])
+      ?.find(a => a.type === "wallet" && a.chainType === "solana")
+      ?.address as string | undefined;
+    const solanaAddress = activeAddress ?? linkedSolanaAddress;
+
+    if (solanaAddress) {
+      label = truncate(solanaAddress);
     } else if (user?.email?.address) {
       const email = user.email.address;
       label = email.length > 18 ? email.slice(0, 14) + "..." : email;

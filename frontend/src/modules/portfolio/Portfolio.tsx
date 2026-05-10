@@ -18,12 +18,16 @@ function pnlColor(lamports: string): string {
 }
 
 export default function Portfolio() {
-  const { ready: privyReady, authenticated } = usePrivy();
+  const { ready: privyReady, authenticated, user } = usePrivy();
   const { wallets: solanaWallets } = useSolanaWallets();
   const [activeTab, setActiveTab] = useState<"positions" | "activity">("positions");
   const [search, setSearch] = useState("");
 
-  const address = solanaWallets[0]?.address;
+  // Prioritaskan wallet aktif, fallback ke linked account (untuk sesi tanpa auto-connect)
+  const linkedSolanaAddress = (user?.linkedAccounts as any[])
+    ?.find(a => a.type === "wallet" && a.chainType === "solana")
+    ?.address as string | undefined;
+  const address = solanaWallets[0]?.address ?? linkedSolanaAddress;
 
   const { data, isLoading, isError } = usePortfolio(address);
 
@@ -39,7 +43,6 @@ export default function Portfolio() {
       <div className="w-full max-w-5xl mx-auto flex flex-col gap-10">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-display font-bold">Portfolio</h1>
-          <p className="text-white/40 text-sm">Track your attention market positions and activity</p>
         </div>
         <div className="w-full py-32 flex flex-col items-center justify-center gap-3 border border-white/[0.05] rounded-2xl bg-white/[0.02]">
           <p className="text-white/40 text-sm">Connect your wallet to view your portfolio</p>
@@ -52,7 +55,6 @@ export default function Portfolio() {
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-10">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-display font-bold">Portfolio</h1>
-        <p className="text-white/40 text-sm">Track your attention market positions and activity</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
