@@ -143,33 +143,33 @@ export interface Portfolio {
 }
 
 export interface EstimateRequest {
-  market_pda: string;
+  identifier: string;
   side: TradeSide;
-  sol_amount?: string;
-  token_amount?: string;
-  slippage_bps?: number;
+  solAmount?: number;
+  tokenAmount?: string;
+  slippageBps?: number;
 }
 
 export interface EstimateResponse {
   side: TradeSide;
-  tokens_out: string;
-  min_tokens_out: string;
-  sol_out: string;
-  min_sol_out: string;
-  effective_price_lamports: number;
-  spot_price_before_lamports: number;
-  spot_price_after_lamports: number;
-  price_impact_bps: number;
-  slippage_bps: number;
+  tokensOut: string;
+  minTokensOut: string;
+  solOut: string;
+  minSolOut: string;
+  effectivePriceLamports: number;
+  spotPriceBeforeLamports: number;
+  spotPriceAfterLamports: number;
+  priceImpactBps: number;
+  slippageBps: number;
 }
 
 export interface PrepareTradeRequest {
-  market_pda: string;
+  identifier: string;
   trader: string;
   side: TradeSide;
-  sol_amount?: string;
-  token_amount?: string;
-  slippage_bps?: number;
+  solAmount?: number;
+  tokenAmount?: string;
+  slippageBps?: number;
 }
 
 export interface PrepareTradeResponse {
