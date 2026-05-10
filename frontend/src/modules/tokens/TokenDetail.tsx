@@ -209,6 +209,23 @@ export default function TokenDetail({ id }: { id: string }) {
     }));
   }, [ohlcData]);
 
+  const volumeData = useMemo(() => {
+    if (!ohlcData?.candles?.length) return [];
+    return ohlcData.candles.map((c, i) => {
+      const prev = ohlcData.candles[i - 1];
+      const isUp = prev ? Number(c.close) >= Number(prev.close) : true;
+      return {
+        time: Number(c.bucket ?? c.time),
+        value: Number(c.volume),
+        color: isUp ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)",
+      };
+    });
+  }, [ohlcData]);
+
+  const mcapFactor = market
+    ? (Number(market.virtual_token_supply) / 1e6) * (market.stats.sol_price_usd ?? 0)
+    : 0;
+
   const mindshare = market ? market.current_mindshare_bps / 100 : 0;
   const ratchet = market ? market.ratchet_multiplier_bps / 10_000 : 0;
   const priceDeltaBps = market?.stats?.price_change_24h_bps ?? 0;
@@ -343,8 +360,10 @@ export default function TokenDetail({ id }: { id: string }) {
               <TradingViewChart
                 lineData={lineData}
                 candleData={candleData}
+                volumeData={volumeData}
                 chartType={chartType}
                 color={chartColor}
+                mcapFactor={mcapFactor}
               />
             )}
           </div>
