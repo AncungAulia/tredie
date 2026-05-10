@@ -8,6 +8,7 @@ import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { usePrivy, useLogin } from "@privy-io/react-auth";
 import { useMarketDetail } from "@/hooks/useMarketDetail";
+import { useMarketRealtime } from "@/hooks/useMarketRealtime";
 import { useOHLC } from "@/hooks/useOHLC";
 import { ArrowLeft, Copy, BarChart2, TrendingUp } from "lucide-react";
 import Link from "next/link";
@@ -95,6 +96,7 @@ export default function TokenDetail({ id }: { id: string }) {
   const limit = RANGE_LIMIT[timeRange];
   const { data: market, isLoading: loadingMarket } =
     useMarketDetail(identifier);
+  useMarketRealtime(identifier, market?.pda);
   const { data: ohlcData, isLoading: loadingOHLC } = useOHLC(
     identifier,
     interval,
@@ -122,6 +124,7 @@ export default function TokenDetail({ id }: { id: string }) {
       const t1 = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["ohlc", identifier] });
         queryClient.invalidateQueries({ queryKey: ["market", identifier] });
+        queryClient.invalidateQueries({ queryKey: ["portfolio", walletAddress] });
       }, 4000);
 
       const t2 = setTimeout(reset, 2000);
@@ -235,7 +238,7 @@ export default function TokenDetail({ id }: { id: string }) {
 
   if (loadingMarket) {
     return (
-      <div className="w-full max-w-7xl mx-auto pb-24 animate-pulse">
+      <div className="w-full max-w-7xl mx-auto pb-24 animate-shimmer">
         <div className="h-8 w-48 bg-white/10 rounded mb-6" />
         <div className="h-64 bg-white/[0.03] rounded-xl" />
       </div>
@@ -258,19 +261,28 @@ export default function TokenDetail({ id }: { id: string }) {
 
   return (
     <div className="w-full max-w-7xl mx-auto pb-24 animate-fadeIn">
+      {/* Mobile sticky mini-header */}
+      <div className="flex-col items-start md:hidden sticky top-16 z-30 -mx-8 px-6 py-2 bg-[#09090B]/90 backdrop-blur-md border-b border-white/[0.05] flex gap-3 mb-6">
+        <Link href="/topics" className="text-white/50 flex items-center gap-2 hover:text-white transition-colors shrink-0">
+          <ArrowLeft size={18} />
+          <span className="text-sm">Back</span>
+        </Link>
+        <span className="text-white font-semibold text-sm line-clamp-2 flex-1 leading-snug">{label}</span>
+      </div>
+
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <Link
           href="/topics"
-          className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors text-sm mb-4"
+          className="hidden md:inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors text-sm mb-4"
         >
           <ArrowLeft size={13} />
-          Home
+          Back
         </Link>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-2xl font-bold text-white font-sans leading-tight truncate">
+            <h1 className="hidden md:block text-lg sm:text-2xl font-bold text-white font-sans leading-tight line-clamp-2 sm:truncate">
               {label}
             </h1>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-white/40 text-xs">
@@ -287,30 +299,27 @@ export default function TokenDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="flex items-start justify-between shrink-0 md:w-[340px]">
+          <div className="grid grid-cols-3 gap-x-6 shrink-0 lg:w-[340px]">
             <div className="flex flex-col">
-              <span className="text-white font-mono font-bold text-base leading-snug">
+              <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
                 {formatVolume(market.stats.volume_24h_lamports)} SOL
               </span>
               <span className="text-white/30 text-[11px] mt-0.5">24h vol</span>
             </div>
             <div className="flex flex-col">
               <span
-                className="font-mono font-bold text-base leading-snug"
+                className="font-mono font-bold text-base leading-snug whitespace-nowrap"
                 style={{ color: isPositive ? "#00FF47" : "#EF4444" }}
               >
-                {isPositive ? "+" : ""}
-                {(priceDeltaBps / 100).toFixed(2)}%
+                {isPositive ? "+" : ""}{(priceDeltaBps / 100).toFixed(2)}%
               </span>
-              <span className="text-white/30 text-[11px] mt-0.5">
-                24h change
-              </span>
+              <span className="text-white/30 text-[11px] mt-0.5">24h change</span>
             </div>
             <div className="flex flex-col">
-              <span className="text-white font-mono font-bold text-base leading-snug">
-                {Number(market.stats?.holders_count ?? 0).toLocaleString()}
+              <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
+                {formatPrice(pricePerToken * tokensMinted / 1e6)} SOL
               </span>
-              <span className="text-white/30 text-[11px] mt-0.5">holders</span>
+              <span className="text-white/30 text-[11px] mt-0.5">market cap</span>
             </div>
           </div>
         </div>
@@ -326,7 +335,7 @@ export default function TokenDetail({ id }: { id: string }) {
             style={{ background: "#000", height: 320 }}
           >
             {loadingOHLC ? (
-              <div className="w-full h-full animate-pulse bg-white/[0.03]" />
+              <div className="w-full h-full animate-shimmer bg-white/[0.03]" />
             ) : (
               <TradingViewChart
                 lineData={lineData}
@@ -376,16 +385,10 @@ export default function TokenDetail({ id }: { id: string }) {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[
-              {
-                label: "Spot Price",
-                value: `${formatPrice(pricePerToken)} SOL`,
-              },
-              {
-                label: "24h Volume",
-                value: `${formatVolume(market.stats.volume_24h_lamports)} SOL`,
-              },
+              { label: "Spot Price", value: `${formatPrice(pricePerToken)} SOL` },
+              { label: "Ratchet", value: `${ratchet.toFixed(1)}x` },
             ].map(({ label, value }) => (
               <div
                 key={label}
@@ -659,7 +662,7 @@ export default function TokenDetail({ id }: { id: string }) {
       {/* Mobile: buy button — portal ke body, bypass transform stacking context */}
       {mounted &&
         createPortal(
-          <div className="md:hidden fixed bottom-16 inset-x-0 z-40 px-4 pb-3 pt-4 bg-gradient-to-t from-[#09090B] to-transparent">
+          <div className="md:hidden fixed bottom-4 inset-x-0 z-40 px-4 pb-3 pt-4 bg-gradient-to-t from-[#09090B] to-transparent">
             <button
               onClick={() => {
                 setTradeType("buy");
@@ -701,7 +704,7 @@ export default function TokenDetail({ id }: { id: string }) {
                 {(["buy", "sell"] as const).map((type) => (
                   <button
                     key={type}
-                    onClick={() => setTradeType(type)}  
+                    onClick={() => setTradeType(type)}
                     className={`h-[26px] overflow-hidden group transition-colors cursor-pointer capitalize ${
                       tradeType === type
                         ? type === "buy"
@@ -755,9 +758,15 @@ export default function TokenDetail({ id }: { id: string }) {
                     key={pct}
                     onClick={() => {
                       if (tradeType === "buy") {
-                        setAmount(((solBalance / 1e9) * (pct / 100)).toFixed(4));
+                        setAmount(
+                          ((solBalance / 1e9) * (pct / 100)).toFixed(4),
+                        );
                       } else {
-                        setAmount(((Number(tokenBalance) / 1e6) * (pct / 100)).toFixed(2));
+                        setAmount(
+                          ((Number(tokenBalance) / 1e6) * (pct / 100)).toFixed(
+                            2,
+                          ),
+                        );
                       }
                     }}
                     className="h-8 text-white/45 bg-white/[0.05] hover:bg-white/[0.09] rounded-lg text-xs font-medium transition-colors cursor-pointer"
