@@ -82,12 +82,13 @@ function MiniLineChart({
   );
 }
 
-function formatPrice(lamports: number): string {
-  const sol = lamports / 1e9;
-  if (sol < 0.0001) return sol.toFixed(7);
-  if (sol < 0.01) return sol.toFixed(5);
-  if (sol < 1) return sol.toFixed(4);
-  return sol.toFixed(2);
+function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number): string {
+  if (!fdvLamports || solPriceUsd === 0) return "—";
+  const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  if (usd >= 1) return `$${usd.toFixed(0)}`;
+  return `$${usd.toFixed(2)}`;
 }
 
 function formatVolume(lamports: string): string {
@@ -97,18 +98,10 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
-function TopicCard({ market }: { market: Market }) {
+function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
   const mindshare = market.current_mindshare_bps / 100;
-  const currentPrice =
-    Number(market.virtual_token_supply) - Number(market.tokens_minted) > 0
-      ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
-        (Number(market.virtual_token_supply) - Number(market.tokens_minted))
-      : 0;
   const rawSparkline = (market.price_sparkline_24h ?? []);
-  const sparkline =
-    rawSparkline.length >= 2
-      ? rawSparkline
-      : Array(2).fill(currentPrice);
+  const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -148,8 +141,8 @@ function TopicCard({ market }: { market: Market }) {
         </div>
 
         <div className="flex items-baseline gap-2">
-          <span className="text-white text-2xl font-mono font-bold">{formatPrice(currentPrice)}</span>
-          <span className="text-white/30 text-sm font-mono">SOL</span>
+          <span className="text-white text-2xl font-mono font-bold">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
+          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
         <MiniLineChart data={sparkline} />
@@ -172,16 +165,10 @@ function TopicCard({ market }: { market: Market }) {
   );
 }
 
-function MobileTopicCard({ market }: { market: Market }) {
+function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
   const mindshare = market.current_mindshare_bps / 100;
-  const currentPrice =
-    Number(market.virtual_token_supply) - Number(market.tokens_minted) > 0
-      ? (Number(market.real_sol_reserves) + Number(market.base_virtual_sol)) /
-        (Number(market.virtual_token_supply) - Number(market.tokens_minted))
-      : 0;
   const rawSparkline = (market.price_sparkline_24h ?? []);
-  const sparkline =
-    rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(currentPrice);
+  const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -216,8 +203,8 @@ function MobileTopicCard({ market }: { market: Market }) {
         </div>
 
         <div className="flex items-baseline gap-2 mt-3">
-          <span className="text-3xl font-mono font-bold text-white">{formatPrice(currentPrice)}</span>
-          <span className="text-white/30 font-mono">SOL</span>
+          <span className="text-3xl font-mono font-bold text-white">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
+          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
         <div className="flex-1 min-h-0 mt-4">
@@ -271,20 +258,24 @@ export default function Topics() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  const { data: trendingMarkets = [], isLoading: loadingTrending } = useMarkets({
+  const { data: trendingData, isLoading: loadingTrending } = useMarkets({
     type: "topic",
     sortBy: "mindshare",
     limit: 50,
     sparkline: true,
   });
 
-  const { data: newestMarkets = [], isLoading: loadingNewest } = useMarkets({
+  const { data: newestData, isLoading: loadingNewest } = useMarkets({
     type: "topic",
     sortBy: "created_at",
     order: "desc",
     limit: 50,
     sparkline: true,
   });
+
+  const trendingMarkets = trendingData?.markets ?? [];
+  const newestMarkets = newestData?.markets ?? [];
+  const solPriceUsd = (trendingData ?? newestData)?.solPriceUsd ?? 0;
 
   const isLoading = activeCategory === "Trending" ? loadingTrending : loadingNewest;
   const markets = activeCategory === "Trending" ? trendingMarkets : newestMarkets;
@@ -349,7 +340,7 @@ export default function Topics() {
               <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
             ))
           : markets.map((market) => (
-              <MobileTopicCard key={market.identifier} market={market} />
+              <MobileTopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
             ))}
       </div>
 
@@ -373,7 +364,7 @@ export default function Topics() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {markets.map((market) => (
-              <TopicCard key={market.identifier} market={market} />
+              <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
             ))}
           </div>
         )}

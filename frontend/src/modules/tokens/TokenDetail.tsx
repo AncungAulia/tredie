@@ -10,7 +10,7 @@ import { usePrivy, useLogin } from "@privy-io/react-auth";
 import { useMarketDetail } from "@/hooks/useMarketDetail";
 import { useMarketRealtime } from "@/hooks/useMarketRealtime";
 import { useOHLC } from "@/hooks/useOHLC";
-import { ArrowLeft, Copy, BarChart2, TrendingUp } from "lucide-react";
+import { ArrowLeft, Copy, BarChart2, TrendingUp, Info } from "lucide-react";
 import Link from "next/link";
 import TradingViewChart from "@/components/chart/TradingViewChart";
 import type { OHLCInterval } from "@/types/api";
@@ -72,6 +72,15 @@ function formatVolume(lamports: string): string {
   if (sol >= 1_000_000) return `${(sol / 1_000_000).toFixed(1)}M`;
   if (sol >= 1_000) return `${(sol / 1_000).toFixed(1)}K`;
   return sol.toFixed(2);
+}
+
+function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number | undefined): string {
+  if (!fdvLamports || !solPriceUsd) return "—";
+  const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  if (usd >= 1) return `$${usd.toFixed(0)}`;
+  return `$${usd.toFixed(2)}`;
 }
 
 export default function TokenDetail({ id }: { id: string }) {
@@ -307,7 +316,7 @@ export default function TokenDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-x-6 shrink-0 lg:w-[340px]">
+          <div className="grid grid-cols-2 gap-x-6 shrink-0 lg:w-[220px]">
             <div className="flex flex-col">
               <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
                 {formatVolume(market.stats.volume_24h_lamports)} SOL
@@ -322,12 +331,6 @@ export default function TokenDetail({ id }: { id: string }) {
                 {isPositive ? "+" : ""}{(priceDeltaBps / 100).toFixed(2)}%
               </span>
               <span className="text-white/30 text-[11px] mt-0.5">24h change</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
-                {formatPrice(pricePerToken * tokensMinted / 1e6)} SOL
-              </span>
-              <span className="text-white/30 text-[11px] mt-0.5">market cap</span>
             </div>
           </div>
         </div>
@@ -394,20 +397,26 @@ export default function TokenDetail({ id }: { id: string }) {
 
           {/* Stats row */}
           <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Spot Price", value: `${formatPrice(pricePerToken)} SOL` },
-              { label: "Ratchet", value: `${ratchet.toFixed(1)}x` },
-            ].map(({ label, value }) => (
-              <div
-                key={label}
-                className="flex flex-col gap-1 bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-3"
-              >
-                <span className="text-white/35 text-[11px] uppercase tracking-wide">
-                  {label}
-                </span>
-                <span className="font-mono text-sm text-white">{value}</span>
+            <div className="flex flex-col gap-1 bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-3">
+              <span className="text-white/35 text-[11px] uppercase tracking-wide">Market Cap</span>
+              <span className="font-mono text-sm text-white">
+                {formatMcapUsd(market.stats.fdv_lamports, market.stats.sol_price_usd)}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1 bg-white/[0.02] border border-white/[0.06] rounded-xl px-4 py-3">
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/35 text-[11px] uppercase tracking-wide">Ratchet</span>
+                <div className="relative group/rinfo">
+                  <button className="text-white/30 hover:text-white/60 transition-colors flex items-center justify-center">
+                    <Info size={11} />
+                  </button>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-[#1c1c1c] border border-white/10 rounded-lg text-[11px] text-white/65 leading-relaxed invisible group-hover/rinfo:visible opacity-0 group-hover/rinfo:opacity-100 transition-opacity duration-150 z-50 pointer-events-none">
+                    The ratchet multiplier raises the bonding curve floor when mindshare peaks. It only moves up. The higher the attention, the higher the price floor.
+                  </div>
+                </div>
               </div>
-            ))}
+              <span className="font-mono text-sm text-white">{ratchet.toFixed(1)}x</span>
+            </div>
           </div>
 
           {/* Trades / Holders tabs */}

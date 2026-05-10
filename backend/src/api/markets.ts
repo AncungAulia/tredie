@@ -19,6 +19,26 @@ import {
 
 export const marketsRoutes = new Hono();
 
+let _solPriceCache: { price: number; ts: number } | null = null;
+
+async function fetchSolPriceUsd(): Promise<number> {
+  if (_solPriceCache && Date.now() - _solPriceCache.ts < 5 * 60 * 1000) {
+    return _solPriceCache.price;
+  }
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      { signal: AbortSignal.timeout(4000) },
+    );
+    const data = (await res.json()) as { solana: { usd: number } };
+    const price = data?.solana?.usd ?? 0;
+    if (price > 0) _solPriceCache = { price, ts: Date.now() };
+    return price;
+  } catch {
+    return _solPriceCache?.price ?? 0;
+  }
+}
+
 const jsonSafe = (v: unknown): unknown =>
   JSON.parse(
     JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
@@ -253,7 +273,8 @@ marketsRoutes.get("/", async (c) => {
     }
   }
 
-  return c.json(jsonSafe({ markets: enriched, total: count }));
+  const solPriceUsd = await fetchSolPriceUsd();
+  return c.json(jsonSafe({ markets: enriched, total: count, sol_price_usd: solPriceUsd }));
 });
 
 marketsRoutes.get("/:identifier", async (c) => {
@@ -310,6 +331,8 @@ marketsRoutes.get("/:identifier", async (c) => {
       : 0,
   }));
 
+  const solPriceUsd = await fetchSolPriceUsd();
+
   return c.json(
     jsonSafe({
       market,
@@ -325,6 +348,7 @@ marketsRoutes.get("/:identifier", async (c) => {
         market_cap_lamports: econ.market_cap_lamports,
         fdv_lamports: econ.fdv_lamports,
         liquidity_lamports: econ.liquidity_lamports,
+        sol_price_usd: solPriceUsd,
       },
     }),
   );

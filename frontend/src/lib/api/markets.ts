@@ -14,7 +14,13 @@ export interface ListMarketsParams {
   sparkline?: boolean;
 }
 
-export async function listMarkets(params: ListMarketsParams = {}): Promise<Market[]> {
+export interface MarketsResponse {
+  markets: Market[];
+  total: number;
+  solPriceUsd: number;
+}
+
+export async function listMarkets(params: ListMarketsParams = {}): Promise<MarketsResponse> {
   const searchParams: Record<string, string> = {};
   if (params.type) searchParams.type = params.type;
   if (params.assetClass !== undefined) searchParams.assetClass = String(params.assetClass);
@@ -23,8 +29,8 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
   if (params.order) searchParams.order = params.order;
   searchParams.sparkline = String(params.sparkline ?? true);
 
-  const res = await apiClient.get("markets", { searchParams }).json<{ markets: Market[]; total: number }>();
-  return res.markets;
+  const res = await apiClient.get("markets", { searchParams }).json<{ markets: Market[]; total: number; sol_price_usd: number }>();
+  return { markets: res.markets, total: res.total, solPriceUsd: res.sol_price_usd ?? 0 };
 }
 
 export async function getMarketDetail(identifier: string): Promise<MarketDetail> {
