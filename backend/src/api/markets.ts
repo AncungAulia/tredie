@@ -19,7 +19,6 @@ import {
 
 export const marketsRoutes = new Hono();
 
-const SOL_MINT = "So11111111111111111111111111111111111111112";
 let _solPriceCache: { price: number; ts: number } | null = null;
 
 async function fetchSolPriceUsd(): Promise<number> {
@@ -27,9 +26,12 @@ async function fetchSolPriceUsd(): Promise<number> {
     return _solPriceCache.price;
   }
   try {
-    const res = await fetch(`https://api.jup.ag/price/v2?ids=${SOL_MINT}`);
-    const data = (await res.json()) as { data: Record<string, { price: number }> };
-    const price = data?.data?.[SOL_MINT]?.price ?? 0;
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+      { signal: AbortSignal.timeout(4000) },
+    );
+    const data = (await res.json()) as { solana: { usd: number } };
+    const price = data?.solana?.usd ?? 0;
     if (price > 0) _solPriceCache = { price, ts: Date.now() };
     return price;
   } catch {
