@@ -17,6 +17,7 @@ export interface Market {
   base_virtual_sol: string;
   volume_24h_lamports: string;
   holders_count: string;
+  fdv_lamports?: string;
   sparkline_24h: number[];
   market_cap_sparkline_24h: string[];
   price_sparkline_24h: number[];

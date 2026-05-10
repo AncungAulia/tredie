@@ -19,6 +19,24 @@ import {
 
 export const marketsRoutes = new Hono();
 
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+let _solPriceCache: { price: number; ts: number } | null = null;
+
+async function fetchSolPriceUsd(): Promise<number> {
+  if (_solPriceCache && Date.now() - _solPriceCache.ts < 5 * 60 * 1000) {
+    return _solPriceCache.price;
+  }
+  try {
+    const res = await fetch(`https://api.jup.ag/price/v2?ids=${SOL_MINT}`);
+    const data = (await res.json()) as { data: Record<string, { price: number }> };
+    const price = data?.data?.[SOL_MINT]?.price ?? 0;
+    if (price > 0) _solPriceCache = { price, ts: Date.now() };
+    return price;
+  } catch {
+    return _solPriceCache?.price ?? 0;
+  }
+}
+
 const jsonSafe = (v: unknown): unknown =>
   JSON.parse(
     JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
@@ -253,7 +271,8 @@ marketsRoutes.get("/", async (c) => {
     }
   }
 
-  return c.json(jsonSafe({ markets: enriched, total: count }));
+  const solPriceUsd = await fetchSolPriceUsd();
+  return c.json(jsonSafe({ markets: enriched, total: count, sol_price_usd: solPriceUsd }));
 });
 
 marketsRoutes.get("/:identifier", async (c) => {
