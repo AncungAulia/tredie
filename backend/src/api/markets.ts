@@ -220,9 +220,10 @@ marketsRoutes.get("/", async (c) => {
     // mcap = close_price (lamports/token) × cum_tokens (token base units) → lamports
     const mcapMap = new Map<string, bigint[]>();
     for (const r of mcapRows) {
-      const mcap = BigInt(Math.floor(r.close_price * Number(r.cum_tokens)));
+      const raw = r.close_price * Number(r.cum_tokens);
+      if (!Number.isFinite(raw)) continue;
       const arr = mcapMap.get(r.market_pda) ?? [];
-      arr.push(mcap);
+      arr.push(BigInt(Math.floor(raw)));
       mcapMap.set(r.market_pda, arr);
     }
 

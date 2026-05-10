@@ -6,6 +6,9 @@ export const sql = postgres(config.DATABASE_URL, {
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
+  // Railway pakai PgBouncer (transaction mode) — prepared statements tidak
+  // bertahan antar koneksi pooled, jadi harus dimatikan.
+  prepare: false,
   types: {
     bigint: postgres.BigInt,
   },
