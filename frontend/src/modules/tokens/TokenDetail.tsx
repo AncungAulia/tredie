@@ -106,7 +106,7 @@ export default function TokenDetail({ id }: { id: string }) {
   // Prefer external wallet (Phantom, etc.) over embedded Privy wallet.
   // Embedded wallets have walletClientType === 'privy' and start with 0 SOL.
   const walletAddress =
-    wallets.find((w) => w.walletClientType !== "privy")?.address ??
+    wallets.find((w) => (w as any).walletClientType !== "privy")?.address ??
     wallets[0]?.address;
 
   const interval = RANGE_TO_INTERVAL[timeRange];

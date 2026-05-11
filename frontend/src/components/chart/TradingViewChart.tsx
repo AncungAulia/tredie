@@ -190,7 +190,6 @@ export default function TradingViewChart({
         lineColor: "rgba(0,0,0,0)",
         topColor: "rgba(0,0,0,0)",
         bottomColor: "rgba(0,0,0,0)",
-        lineWidth: 0,
         crosshairMarkerRadius: 0,
         crosshairMarkerBorderWidth: 0,
         priceLineVisible: false,
@@ -252,9 +251,9 @@ export default function TradingViewChart({
         .map((d) => {
           const x = chart.timeScale().timeToCoordinate(d.time as any);
           const y = fg.priceToCoordinate(d.value);
-          return x !== null && y !== null ? { x, y } : null;
+          return x !== null && y !== null ? { x: x as number, y: y as number } : null;
         })
-        .filter((p): p is { x: number; y: number } => p !== null);
+        .filter(Boolean) as { x: number; y: number }[];
       setBrightPts(pts);
     };
 
@@ -292,7 +291,7 @@ export default function TradingViewChart({
       // Hover dot: interpolate Y on line at cursor X; clamp to last point if past end
       if (!useCandle && fg) {
         const pts = linePointsRef.current;
-        let dotX = param.point.x;
+        let dotX = param.point.x as number;
         let lineY: number | null = null;
 
         for (let i = 0; i < pts.length - 1; i++) {
