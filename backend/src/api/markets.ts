@@ -148,7 +148,8 @@ const TOPIC_CLASSES = [6];
 marketsRoutes.get("/", async (c) => {
   const assetClass = c.req.query("assetClass");
   const type = c.req.query("type"); // "token" | "topic"
-  const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
+  const limit = Math.min(Number(c.req.query("limit") ?? 20), 100);
+  const offset = Math.max(Number(c.req.query("offset") ?? 0), 0);
   const sortBy = c.req.query("sortBy") ?? "mindshare";
   const order = c.req.query("order") === "asc" ? "ASC" : "DESC";
   const includeSparkline = c.req.query("sparkline") !== "false";
@@ -179,11 +180,11 @@ marketsRoutes.get("/", async (c) => {
     classes !== null
       ? await sql<db.MarketRow[]>`
           SELECT * FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
-          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `
       : await sql<db.MarketRow[]>`
           SELECT * FROM markets WHERE image_url IS NOT NULL
-          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `;
 
   const [{ count }] =
