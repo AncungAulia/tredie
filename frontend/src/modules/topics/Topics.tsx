@@ -310,7 +310,7 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
             </h2>
             <div className="flex items-center gap-3 mt-3 flex-wrap">
               <span className="inline-flex items-center px-3 py-1.5 bg-[#00FF47] text-black text-xs font-bold rounded-lg">
-                Trade {main.display_name ?? main.identifier}
+                Trade {main.identifier}
               </span>
               {category === "Trending" && (
                 <>
