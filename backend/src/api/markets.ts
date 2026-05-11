@@ -327,6 +327,7 @@ marketsRoutes.get("/", async (c) => {
 
 marketsRoutes.get("/:identifier", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
@@ -414,6 +415,7 @@ marketsRoutes.get("/:identifier/trades", async (c) => {
 // On-chain oracle account state untuk live mindshare/ratchet meter.
 marketsRoutes.get("/:identifier/oracle", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
@@ -451,6 +453,7 @@ const INTERVAL_SECONDS: Record<string, number> = {
 
 marketsRoutes.get("/:identifier/ohlc", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const parsed = ohlcSchema.safeParse({
     interval: c.req.query("interval"),
     limit: c.req.query("limit"),
@@ -541,6 +544,7 @@ marketsRoutes.get("/:identifier/ohlc", async (c) => {
 // AI thesis untuk market detail page (Elfa Chat).
 marketsRoutes.get("/:identifier/ai-context", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
