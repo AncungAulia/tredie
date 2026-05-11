@@ -310,9 +310,7 @@ const Hero = () => {
             Trade What the <br /> World Is Talking About
           </p>
           <p className="w-[23%] max-sm:w-full max-sm:text-[4vw] max-sm:leading-[1.5] max-sm:text-left max-sm:opacity-75 max-sm:mb-12 text-[1.3vw] leading-none hero-text text-white">
-            Buy the topics people are talking about. The more popular it gets,
-            the more it is worth. Once the price goes up, it never comes back
-            down.
+            Markets open automatically when something trends. The more the conversation grows, the higher the floor locks in.
           </p>
         </div>
 

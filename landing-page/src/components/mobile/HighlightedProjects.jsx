@@ -25,53 +25,33 @@ const HighlightedProjects = () => {
   const slides = [
     {
       id: 1,
-      title: "BONK:",
-      subtitle: "Price settled 3x higher",
-      category: "Meme Coin",
+      title: "BTC:",
+      subtitle: "Something was happening before it happened.",
+      category: "Crypto",
       location: "Solana",
       description:
-        "BONK blew up on social media. A market opened on Tredie within 30 seconds. The price never dropped back down.",
-      bgImage: "https://images.unsplash.com/photo-1624996379697-f01d168b1a52?auto=format&fit=crop&w=800&q=80",
+        "BTC was all over my feed that morning before the charts moved. Got in while it was still quiet.",
+      bgImage: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778527448/Topics_trend_every_day_o8mytv.png",
     },
     {
       id: 2,
-      title: "WIF:",
-      subtitle: "$200K in 30 minutes",
-      category: "Meme Token",
+      title: "HANTA:",
+      subtitle: "Top trending topic. Three hours straight.",
+      category: "Topic",
       location: "Solana",
       description:
-        "WIF went viral on Telegram. Tredie opened a market before any exchange listed it. Volume hit $200K in the first half hour.",
-      bgImage: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&w=800&q=80",
+        "It was just the top trending topic on X for three hours straight. That felt like a signal. Opened a position. It was.",
+      bgImage: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778499766/hantavirus1_aivmoq.avif",
     },
     {
       id: 3,
       title: "AAPL:",
-      subtitle: "Price moved the moment it trended",
-      category: "Stock",
+      subtitle: "Price agreed before the keynote was over.",
+      category: "Equity",
       location: "Solana",
       description:
-        "Apple's keynote trended worldwide. Tredie had a market live 24/7. No waiting for an exchange to catch up.",
-      bgImage: "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: 4,
-      title: "GOLD:",
-      subtitle: "Trade gold, anytime",
-      category: "Commodity",
-      location: "Solana",
-      description:
-        "Gold surged on the news. Tredie had a market live. No broker, no sign-up, no waiting for the market to open.",
-      bgImage: "https://images.unsplash.com/photo-1611162618758-2a29a995354b?auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: 5,
-      title: "DOGE:",
-      subtitle: "Floor tripled in 6 hours",
-      category: "Meme Coin",
-      location: "Solana",
-      description:
-        "Doge trended worldwide. Tredie opened a market before any exchange caught up. The price held and kept climbing.",
-      bgImage: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
+        "I was watching the Apple keynote and opened Tredie before it was over. The attention was obvious. The price agreed.",
+      bgImage: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778529755/Apple_keynote_kwxgrp.jpg",
     },
   ];
 

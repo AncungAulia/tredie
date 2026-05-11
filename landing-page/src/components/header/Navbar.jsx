@@ -66,9 +66,7 @@ export default function Navbar() {
     { title: "Markets",      scrollTo: "#markets" },
     { title: "How It Works", scrollTo: "#insights" },
     { title: "Trending",     scrollTo: "#casee-study" },
-    { title: "Portfolio",    href: "https://app.tredie.fun" },
-    { title: "Docs",         href: "/docs" },
-    { title: "Contact",      scrollTo: "#footer-wrapper" },
+    { title: "Launch App",   href: "https://app.tredie.fun/", newTab: true },
   ];
 
   const handleNavClick = (item) => {
@@ -255,6 +253,8 @@ export default function Navbar() {
         {/* Right - Got a Project */}
         <Link
           href="https://app.tredie.fun"
+          target="_blank"
+          rel="noopener noreferrer"
           className="relative nav-menu-item flex flex-col items-center overflow-hidden justify-center cursor-pointer outline-none bg-[#9C93E8] px-[1vw] h-full py-[1vw] rounded-bl-[1vw] max-sm:px-[4vw] max-sm:rounded-bl-[3vw] z-10002 max-sm:z-[9998] group"
         >
           <div className="relative w-[7vw] flex justify-center items-start h-[1vw] overflow-hidden max-sm:w-[24vw] max-sm:h-[5vw]">
@@ -314,6 +314,8 @@ export default function Navbar() {
                     ) : (
                       <Link
                         href={item.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="font-third text-[4vw] text-right origin-right cursor-pointer transition-colors duration-300 max-sm:text-[8vw] max-sm:text-left max-sm:text-black"
                       >
                         {item.title}

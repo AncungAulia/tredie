@@ -5,33 +5,33 @@ import 'swiper/css';
 const statsData = [
   {
     number: "5",
-    heading: "What You Can Trade",
-    content: "Crypto, stocks, gold, and currencies. All on one platform, no matter what is trending.",
-    image: "https://images.unsplash.com/photo-1642790551116-18e150f248e3?auto=format&fit=crop&w=800&q=80"
+    heading: "5 Asset Classes",
+    content: "Crypto, equities, commodities, FX, and topics. If attention moved it, you can trade it here.",
+    image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778530402/Screenshot_2026-05-12_at_03.13.12_lyhxdq.png"
   },
   {
     number: "15min",
-    heading: "Always Up to Date",
-    content: "Every 15 minutes, we check what people are talking about and update prices to match.",
-    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80"
+    heading: "Updates Every 15 Minutes",
+    content: "Elfa AI reads X and Telegram every 15 minutes. When the conversation shifts, price curves shift with it.",
+    image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531004/elfaai15_gnlw6j.jpg"
   },
   {
     number: "30s",
-    heading: "Ready in Seconds",
-    content: "The moment something starts trending, you can already trade it. It happens automatically.",
-    image: "https://images.unsplash.com/photo-1618044619888-009e412ff12a?auto=format&fit=crop&w=800&q=80"
+    heading: "Opens in 30 Seconds",
+    content: "When a topic starts gaining traction, a market opens automatically. No one has to list it.",
+    image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531194/marketopens_ol3suq.webp"
   },
   {
-    number: "1way",
-    heading: "Prices Only Go Up",
-    content: "Once a topic gets popular enough, its price goes up and stays there. It never drops back down.",
-    image: "https://images.unsplash.com/photo-1605792657660-596af9009e82?auto=format&fit=crop&w=800&q=80"
+    number: "0",
+    heading: "The Market Listed Itself",
+    content: "There is no listing process. Elfa AI detects what's trending and opens a market for it automatically. Nobody submitted it. Nobody approved it.",
+    image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531483/elfaaiauto_neohsy.jpg"
   },
   {
     number: "$200K",
-    heading: "In 30 Minutes",
-    content: "The first market on Tredie did $200K in just 30 minutes. Real demand from real people.",
-    image: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80"
+    heading: "First 30 Minutes",
+    content: "The first market on Tredie cleared $200K in volume before most people knew it existed.",
+    image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778496268/Solana_Perpetuals_ckftdk.jpg"
   }
 ];
 
@@ -61,7 +61,7 @@ const MobileStats = () => {
         {statsData.map((stat, index) => (
           <SwiperSlide key={index}>
             <div className="bg-white rounded-lg overflow-hidden">
-                <div className="text-[25vw] font-third text-gray-900 mb-2">
+                <div className="text-[25vw] font-third text-gray-900 mb-2 h-[28vw] flex items-center leading-none overflow-hidden">
                   {stat.number}
                 </div>
               {/* Image Section */}

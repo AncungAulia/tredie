@@ -14,17 +14,15 @@ export default function MobileFooter() {
               Attention Economy
             </h2>
             <div className="space-y-1 text-sm">
-              <p>Tredie Fun</p>
-              <p>Solana Devnet</p>
-              <p>Colosseum Frontier 2026</p>
-              <p className="mt-4">solana.frontier@tredie.xyz</p>
+              <p>Tredie</p>
+              <p>Live On Solana</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Explore Section */}
-      <div className="mb-12 flex justify-start gap-15">
+      <div className="mb-12">
         <h3 className="text-xs font-bold uppercase tracking-wider mb-4">
           EXPLORE
         </h3>
@@ -44,32 +42,20 @@ export default function MobileFooter() {
           <a href="#" className="block text-[6vw] ">
             Trending
           </a>
-          <a href="#" className="block text-[6vw] ">
-            Portfolio
-          </a>
-          <a href="#" className="block text-[6vw] ">
-            Leaderboard
-          </a>
-          <a href="#" className="block text-[6vw] ">
-            Docs
-          </a>
-          <a href="#" className="block text-[6vw] ">
-            Contact
+          <a href="https://app.tredie.fun/" target="_blank" rel="noopener noreferrer" className="block text-[6vw] ">
+            Launch App
           </a>
         </nav>
       </div>
 
       {/* Connect Section */}
-      <div className="flex flex-row items-start gap-15 justify-start font-display">
+      <div className="mb-12 font-display">
         <h3 className="text-xs font-bold uppercase tracking-wider mb-4">
           CONNECT
         </h3>
         <div className="space-y-1">
-          <a href="#" className="block text-[6vw] ">
-            LinkedIn
-          </a>
-          <a href="#" className="block text-[6vw] ">
-            Instagram
+          <a href="https://x.com/trediedotfun" target="_blank" rel="noopener noreferrer" className="block text-[6vw] ">
+            X
           </a>
         </div>
       </div>

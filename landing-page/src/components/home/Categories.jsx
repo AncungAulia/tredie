@@ -12,45 +12,45 @@ gsap.registerPlugin(ScrollTrigger);
 const categoriesData = [
   {
     id: "01",
-    category: "Trends",
-    title: "If it's blowing up on social, it's already tradeable here.",
+    category: "Topics",
+    title: "Topics trend every day. Most of that attention had nowhere to go.",
     backgroundColor: "bg-[#7B6ED8]",
     description:
-      "Tredie watches X and Telegram in real time. The moment something starts trending, you can trade it. In seconds. No middlemen.",
+      "When a topic starts gaining traction on X or Telegram, a market opens for it on Tredie. You trade the conversation, not a derivative of it.",
     image:
-      "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=800&q=80",
+      "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778527448/Topics_trend_every_day_o8mytv.png",
     cta: "Start Trading",
   },
   {
     id: "02",
     category: "Attention",
     backgroundColor: "bg-[#4C4496]",
-    title: "Popularity drives price. Get in before everyone else does.",
+    title: "Attention has always moved prices. It never had a price of its own.",
     description:
-      "When something starts getting talked about, the price follows. Tredie tracks how fast buzz is growing so you can buy in before the crowd pushes the price up.",
+      "On Tredie, each market's price reflects the attention a topic is getting. When social interest grows, the price floor moves with it. You can see where the conversation is going before the price gets there.",
     image:
-      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80",
+      "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778528025/WhatsApp_Image_2026-05-12_at_02.33.33_shenyh.jpg",
     cta: "View Signals",
   },
   {
     id: "03",
-    category: "Smart Tracking",
+    category: "Signal",
     backgroundColor: "bg-[#281F5E]",
-    title: "We watch what people talk about. You just have to trade it.",
+    title: "By the time it's in the news, the interesting trade already happened.",
     description:
-      "Tredie uses Elfa AI to spot what is starting to blow up online before it goes mainstream. Updated continuously, so you always see what is moving right now.",
+      "Tredie surfaces what's gaining traction on X and Telegram before it becomes mainstream. The feed shows what the internet is watching right now, not yesterday.",
     image: "/assets/img/elfa-ai-logo.png",
     cta: "See What's Trending",
   },
   {
     id: "04",
-    category: "Trending Tokens",
+    category: "Tokens",
     backgroundColor: "bg-[#110F28]",
-    title: "When it blows up on X and Telegram, the market is already open.",
+    title: "A token went viral on X this week. Its market was already live.",
     description:
-      "Tredie watches tokens going viral on X and Telegram. The moment one starts moving, we open a market automatically. No waiting.",
+      "Tokens gaining traction on X and Telegram get markets automatically on Tredie. Not after someone notices. The moment attention builds.",
     image:
-      "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80",
+      "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778529329/tokenstredie_y24ocf.jpg",
     cta: "Find Markets",
   },
 ];

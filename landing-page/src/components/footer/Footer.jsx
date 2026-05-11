@@ -21,14 +21,11 @@ const Footer = () => {
     { title: "Markets",      scrollTo: "#markets" },
     { title: "How It Works", scrollTo: "#insights" },
     { title: "Trending",     scrollTo: "#casee-study" },
-    { title: "Portfolio",    href: "https://app.tredie.fun" },
-    { title: "Docs",         href: "/docs" },
-    { title: "Contact",      scrollTo: "#footer-wrapper" },
+    { title: "Launch App",   href: "https://app.tredie.fun/", newTab: true },
   ];
 
   const socialItems = [
-    { title: "LinkedIn", href: "https://linkedin.com" },
-    { title: "Instagram", href: "https://instagram.com" },
+    { title: "X", href: "https://x.com/trediedotfun" },
   ];
 
   useEffect(() => {
@@ -103,7 +100,7 @@ const Footer = () => {
             </h1>
             <div className="text-[1vw] leading-[1.6vw] font-light text-gray-300 mt-auto">
               <p>Tredie</p>
-              <p>Live On Solana Devnet</p>
+              <p>Live On Solana</p>
             </div>
           </div>
 
@@ -136,6 +133,8 @@ const Footer = () => {
                     ) : (
                       <Link
                         href={item.href}
+                        target={item.newTab ? "_blank" : undefined}
+                        rel={item.newTab ? "noopener noreferrer" : undefined}
                         className="cursor-pointer transition-colors duration-300 hover:text-[#9C93E8]"
                       >
                         {item.title}

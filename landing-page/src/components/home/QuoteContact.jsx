@@ -14,8 +14,8 @@ const QuoteContact = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const images = [
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1400&q=80",
-    "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1400&q=80",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778530402/Screenshot_2026-05-12_at_03.13.12_lyhxdq.png",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778532226/WhatsApp_Image_2026-05-12_at_03.43.31_dwoiop.jpg",
   ];
 
   useEffect(() => {
@@ -112,8 +112,8 @@ const QuoteContact = () => {
           className="absolute flex z-10 flex-col cursor-pointer items-center justify-center gap-[4vw] top-0 left-0 w-full h-full bg-[#9C93E8]"
           style={{ clipPath: "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)" }}
         >
-          <p className="text-[1.8vw] leading-none text-center font-third w-[8vw]">
-            Ready to trade?
+          <p className="text-[1.8vw] leading-none text-center font-third w-[12vw]">
+            Something is trending right now.
           </p>
 
           <div className="w-[25vw] space-y-[2vw]">
@@ -121,7 +121,7 @@ const QuoteContact = () => {
               What is everyone talking about?
             </p>
             <p className="text-[1.3vw] font-medium text-center leading-[1.3]">
-              Every time the internet fixates on something, a market opens automatically. The markets are already live — just pick one and trade.
+              Something is trending right now. A market for it is already open on Tredie.
             </p>
 
             <div className="w-fit mx-auto flex items-center gap-[1vw]">

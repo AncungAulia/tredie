@@ -23,75 +23,39 @@ export default function ClippedTextSection() {
   //  Each slide has its own background + text
   const slides = [
     {
-      image: "https://images.unsplash.com/photo-1624996379697-f01d168b1a52?auto=format&fit=crop&w=800&q=80",
-      heading: "BONK: 1,200% more people talked about it in 24 hours",
-      category: "Crypto",
-      country: "Solana",
-      description:
-        "Bought early. Price settled 3x higher when the buzz hit its peak.",
-      lines: [
-        "Built for what",
-        "people talk about.",
-        "Trade attention,",
-        "not just coins.",
-        "Get in early.",
-      ],
+      image: "https://images.unsplash.com/photo-1576086213369-97a306d36557?auto=format&fit=crop&w=1600&q=80",
+      heading: "Hantavirus was trending on X last week. That conversation had a price.",
+      category: "Topics",
+      country: "AI Markets",
+      description: "Anything the internet talks about, you can trade here.",
     },
     {
-      image: "https://images.unsplash.com/photo-1563986768494-4dee2763ff3f?auto=format&fit=crop&w=800&q=80",
-      heading: "NVDA: Everyone was talking about it during earnings season",
+      image: "https://images.unsplash.com/photo-1640340434855-6084b1f4901c?auto=format&fit=crop&w=1600&q=80",
+      heading: "Bitcoin had its noisiest week this year. Attention peaked before the price did.",
+      category: "Crypto",
+      country: "Bitcoin",
+      description: "It's not just the price. It's who's talking about it.",
+    },
+    {
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778496321/Saylor_Bitcoin_Strategy_sux33b.avif",
+      heading: "Saylor posted about buying Bitcoin. MSTR jumped the same hour. This keeps happening.",
       category: "Equities",
       country: "Stocks",
-      description: "It's not the stock. It's how loud everyone gets about it.",
-      lines: [
-        "Stocks.",
-        "Not the price.",
-        "The noise around it.",
-        "Trade what people",
-        "can't stop talking about.",
-      ],
+      description: "Corporate noise is a real signal.",
     },
     {
-      image: "https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=800&q=80",
-      heading: "Gold: People rushed to buy it when the Fed met",
-      category: "Commodities",
-      country: "Gold, Oil",
-      description: "Gold, oil, currencies. All tradeable here.",
-      lines: [
-        "Gold.",
-        "Oil. Currencies.",
-        "Real things,",
-        "priced by what",
-        "people say about them.",
-      ],
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778526289/coinbaselogo_g61r1w.jpg",
+      heading: "A senator mentioned crypto regulation. Coinbase moved before anyone finished reading.",
+      category: "Equities",
+      country: "Stocks",
+      description: "The news moves last. Attention moves first.",
     },
     {
-      image: "https://images.unsplash.com/photo-1611162618758-2a29a995354b?auto=format&fit=crop&w=800&q=80",
-      heading: "WIF: Viral on X. Floor tripled in 6 hours.",
-      category: "Trending Tokens",
-      country: "X & Telegram",
-      description: "Tokens trending on X and Telegram.",
-      lines: [
-        "Trending on X.",
-        "Trending on Telegram.",
-        "One place",
-        "to see it all",
-        "and trade it.",
-      ],
-    },
-    {
-      image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80",
-      heading: "When something blows up online, the market is already open.",
-      category: "Auto Markets",
-      country: "Always On",
-      description: "Elfa AI watches the internet so you don't have to.",
-      lines: [
-        "The internet moves fast.",
-        "So do we.",
-        "Every spike in attention",
-        "gets its own market.",
-        "Automatically.",
-      ],
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778526145/cryptoact-narrative_omufkl.png",
+      heading: "Congress debated a crypto bill. Markets moved the same afternoon. No coin changed hands.",
+      category: "Narratives",
+      country: "Policy",
+      description: "The conversation is the trade.",
     },
   ];
 
@@ -357,10 +321,10 @@ export default function ClippedTextSection() {
                     Every asset class.{" "}
                   </tspan>
                   <tspan x="50%" y="524.9">
-                    Backed by data,{" "}
+                    Price moves when{" "}
                   </tspan>
                   <tspan x="50%" y="638.3">
-                    not vibes.
+                    attention moves.
                   </tspan>
                 </text>
               </mask>
