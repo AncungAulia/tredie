@@ -110,11 +110,21 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
       <div className="h-full flex flex-col pt-28 px-6">
         {/* Market info */}
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold text-white leading-tight truncate">
-              {market.display_name ?? market.identifier}
-            </h2>
-            <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {market.image_url && (
+              <img
+                src={market.image_url}
+                alt={market.display_name ?? market.identifier}
+                className="w-12 h-12 rounded-full object-cover shrink-0 bg-white/10 mt-0.5"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-bold text-white leading-tight truncate">
+                {market.display_name ?? market.identifier}
+              </h2>
+              <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+            </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">Attention</span>
@@ -303,10 +313,6 @@ export default function Tokens() {
 
       {/* Desktop: grid layout */}
       {!isDetailRoute && <div className="hidden md:flex flex-col gap-8 w-full">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-display font-bold">Tokens</h1>
-        </div>
-
         {categoryToggle(false)}
 
         {isLoading ? (
@@ -335,11 +341,21 @@ export default function Tokens() {
                 <Link href={`/tokens/${encodeURIComponent(market.identifier)}`} key={market.identifier}>
                   <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
                     <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
-                          {market.display_name ?? market.identifier}
-                        </h3>
-                        <p className="text-white/30 text-xs font-mono mt-1.5">{market.identifier}</p>
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {market.image_url && (
+                          <img
+                            src={market.image_url}
+                            alt={market.display_name ?? market.identifier}
+                            className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/10"
+                            onError={(e) => { e.currentTarget.style.display = "none"; }}
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
+                            {market.display_name ?? market.identifier}
+                          </h3>
+                          <p className="text-white/30 text-xs font-mono mt-1.5">{market.identifier}</p>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end shrink-0">
                         <span className="text-[10px] text-white/30 uppercase tracking-wider">Attention</span>

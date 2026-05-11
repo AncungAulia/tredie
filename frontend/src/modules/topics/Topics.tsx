@@ -113,13 +113,23 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
     <Link href={`/topics/${encodeURIComponent(market.identifier)}`}>
       <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
         <div className="flex justify-between items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
-              {market.display_name ?? market.identifier}
-            </h3>
-            <p className="text-white/30 text-xs font-mono mt-1.5">
-              {market.identifier}
-            </p>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {market.image_url && (
+              <img
+                src={market.image_url}
+                alt={market.display_name ?? market.identifier}
+                className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/10"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
+                {market.display_name ?? market.identifier}
+              </h3>
+              <p className="text-white/30 text-xs font-mono mt-1.5">
+                {market.identifier}
+              </p>
+            </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">
@@ -187,11 +197,21 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
     >
       <div className="h-full flex flex-col pt-28 px-6">
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold text-white leading-tight truncate">
-              {market.display_name ?? market.identifier}
-            </h2>
-            <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            {market.image_url && (
+              <img
+                src={market.image_url}
+                alt={market.display_name ?? market.identifier}
+                className="w-12 h-12 rounded-full object-cover shrink-0 bg-white/10 mt-0.5"
+                onError={(e) => { e.currentTarget.style.display = "none"; }}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-bold text-white leading-tight truncate">
+                {market.display_name ?? market.identifier}
+              </h2>
+              <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+            </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">Topics</span>
@@ -233,6 +253,116 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
         <div className="h-16 shrink-0" />
       </div>
     </Link>
+  );
+}
+
+function timeAgo(dateStr: string | number): string {
+  if (!dateStr) return "—";
+  const num = Number(dateStr);
+  const d = isNaN(num)
+    ? new Date(dateStr as string)
+    : new Date(num < 1e10 ? num * 1000 : num);
+  if (isNaN(d.getTime())) return "—";
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+const HERO_TITLES: Record<TopicCategory, string> = {
+  Trending: "What's Trending",
+  Latest: "What's New",
+  Top: "Top Markets by Cap",
+};
+
+function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; solPriceUsd: number; category: TopicCategory }) {
+  const main = markets[0];
+  const secondary = markets.slice(1, 3);
+  if (!main) return null;
+
+  const mainMindshare = (main.current_mindshare_bps / 100).toFixed(1);
+  const mainRatchet = (main.ratchet_multiplier_bps / 10_000).toFixed(1);
+  const mainMcap = formatMcapUsd(main.fdv_lamports, solPriceUsd);
+
+  return (
+    <div className="hidden md:flex flex-col gap-4">
+      <h2 className="text-2xl font-bold text-white">{HERO_TITLES[category]}</h2>
+      <div className="grid grid-cols-[1fr_280px] gap-3 h-[380px]">
+      {/* Left — full-bleed image, text overlay */}
+      <Link href={`/topics/${encodeURIComponent(main.identifier)}`} className="h-full">
+        <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
+          {main.image_url && (
+            <img
+              src={main.image_url}
+              alt={main.display_name ?? main.identifier}
+              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+              onError={(e) => { e.currentTarget.style.display = "none"; }}
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-5">
+            <h2 className="text-white font-bold text-xl leading-snug line-clamp-2 drop-shadow">
+              {main.display_name ?? main.identifier}
+            </h2>
+            <div className="flex items-center gap-3 mt-3 flex-wrap">
+              <span className="inline-flex items-center px-3 py-1.5 bg-[#00FF47] text-black text-xs font-bold rounded-lg">
+                Trade {main.display_name ?? main.identifier}
+              </span>
+              {category === "Trending" && (
+                <>
+                  <span className="text-xs font-mono text-white/60">{mainMindshare}% trend</span>
+                  <span className="text-xs font-mono text-[rgba(156,147,232,0.9)]">{mainRatchet}x</span>
+                </>
+              )}
+              {category === "Latest" && (
+                <span className="text-xs font-mono text-white/60">Created {timeAgo(main.created_at)}</span>
+              )}
+              {category === "Top" && (
+                <span className="text-xs font-mono text-white/60">Mcap {mainMcap}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      </Link>
+
+      {/* Right — 2 stacked full-bleed cards */}
+      <div className="flex flex-col gap-3 h-full">
+        {secondary.map((market) => {
+          const rawSparkline = market.price_sparkline_24h ?? [];
+          const delta = rawSparkline.length >= 2 && rawSparkline[0] !== 0
+            ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
+            : 0;
+          return (
+            <Link key={market.identifier} href={`/topics/${encodeURIComponent(market.identifier)}`} className="flex-1 min-h-0">
+              <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
+                {market.image_url && (
+                  <img
+                    src={market.image_url}
+                    alt={market.display_name ?? market.identifier}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 px-4 py-3 flex items-end justify-between gap-2">
+                  <h3 className="text-white font-semibold text-sm leading-snug line-clamp-2 flex-1 min-w-0 drop-shadow">
+                    {market.display_name ?? market.identifier}
+                  </h3>
+                  <span className={`text-sm font-mono font-bold shrink-0 ${delta >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
+                    {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+      </div>
+    </div>
   );
 }
 
@@ -376,10 +506,6 @@ export default function Topics() {
 
       {!isDetailRoute && (
         <div className="hidden md:flex flex-col gap-8 w-full">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-3xl font-display font-bold">Topics</h1>
-          </div>
-
           {categoryToggle(false)}
 
           {isLoading ? (
@@ -393,11 +519,16 @@ export default function Topics() {
               <p className="text-base">No topics found.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {markets.map((market) => (
-                <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
-              ))}
-            </div>
+            <>
+              <HeroSection markets={markets.slice(0, 3)} solPriceUsd={solPriceUsd} category={activeCategory} />
+              {markets.length > 3 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {markets.slice(3).map((market) => (
+                    <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

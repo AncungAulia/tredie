@@ -132,21 +132,21 @@ marketsRoutes.get("/", async (c) => {
   const rows =
     classes !== null
       ? await sql<db.MarketRow[]>`
-          SELECT * FROM markets WHERE asset_class = ANY(${classes as any})
+          SELECT * FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
           ORDER BY ${sortCol} ${dir} LIMIT ${limit}
         `
       : await sql<db.MarketRow[]>`
-          SELECT * FROM markets
+          SELECT * FROM markets WHERE image_url IS NOT NULL
           ORDER BY ${sortCol} ${dir} LIMIT ${limit}
         `;
 
   const [{ count }] =
     classes !== null
       ? await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any})
+          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
         `
       : await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets
+          SELECT COUNT(*)::bigint as count FROM markets WHERE image_url IS NOT NULL
         `;
 
   // Bulk-fetch 24h aggregates so list view doesn't N+1.
