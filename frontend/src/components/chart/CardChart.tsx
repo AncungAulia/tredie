@@ -1,12 +1,5 @@
 "use client";
 import { useEffect, useRef, useState, useMemo } from "react";
-import {
-  createChart,
-  ColorType,
-  CrosshairMode,
-  LineType,
-  AreaSeries,
-} from "lightweight-charts";
 import { useOHLC } from "@/hooks/useOHLC";
 import type { Market } from "@/types/api";
 
@@ -117,80 +110,89 @@ export default function CardChart({
   useEffect(() => {
     if (!isVisible || !containerRef.current || lineData.length < 2) return;
     const el = containerRef.current;
+    let chart: any;
+    let ro: ResizeObserver | undefined;
+    let rafId: number;
+    let isMounted = true;
 
-    const chart = createChart(el, {
-      handleScroll: false,
-      handleScale: false,
-      layout: {
-        attributionLogo: false,
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "rgba(0,0,0,0)",
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: { visible: false },
-        horzLines: { visible: false },
-      },
-      crosshair: { mode: CrosshairMode.Hidden },
-      rightPriceScale: {
-        borderVisible: false,
-        visible: false,
-        scaleMargins: { top: 0.10, bottom: 0.08 },
-      },
-      timeScale: {
-        borderVisible: false,
-        visible: false,
-        rightOffset: 2,
-        lockVisibleTimeRangeOnResize: true,
-      },
-      width: el.clientWidth,
-      height: el.clientHeight,
-    });
+    import("lightweight-charts").then(({ createChart, ColorType, CrosshairMode, LineType, AreaSeries }) => {
+      if (!isMounted || !containerRef.current) return;
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor: color,
-      topColor: `${color}33`,
-      bottomColor: `${color}00`,
-      lineWidth: 2,
-      crosshairMarkerRadius: 0,
-      crosshairMarkerBorderWidth: 0,
-      priceLineVisible: false,
-      lineType: LineType.Curved,
-    });
+      chart = createChart(el, {
+        handleScroll: false,
+        handleScale: false,
+        layout: {
+          attributionLogo: false,
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "rgba(0,0,0,0)",
+          fontSize: 11,
+        },
+        grid: {
+          vertLines: { visible: false },
+          horzLines: { visible: false },
+        },
+        crosshair: { mode: CrosshairMode.Hidden },
+        rightPriceScale: {
+          borderVisible: false,
+          visible: false,
+          scaleMargins: { top: 0.10, bottom: 0.08 },
+        },
+        timeScale: {
+          borderVisible: false,
+          visible: false,
+          rightOffset: 2,
+          lockVisibleTimeRangeOnResize: true,
+        },
+        width: el.clientWidth,
+        height: el.clientHeight,
+      });
 
-    series.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
-    seriesRef.current = series;
+      const series = chart.addSeries(AreaSeries, {
+        lineColor: color,
+        topColor: `${color}33`,
+        bottomColor: `${color}00`,
+        lineWidth: 2,
+        crosshairMarkerRadius: 0,
+        crosshairMarkerBorderWidth: 0,
+        priceLineVisible: false,
+        lineType: LineType.Curved,
+      });
 
-    const updateDot = () => {
-      const s = seriesRef.current;
-      if (!s) { setDotPos(null); return; }
-      const last = lineData[lineData.length - 1];
-      const x = chart.timeScale().timeToCoordinate(last.time as any);
-      const y = s.priceToCoordinate(last.value);
-      if (x !== null && y !== null) setDotPos({ x, y });
-      else setDotPos(null);
-    };
+      series.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
+      seriesRef.current = series;
 
-    chart.timeScale().fitContent();
-    const rafId = requestAnimationFrame(() => {
-      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      const updateDot = () => {
+        const s = seriesRef.current;
+        if (!s) { setDotPos(null); return; }
+        const last = lineData[lineData.length - 1];
+        const x = chart.timeScale().timeToCoordinate(last.time as any);
+        const y = s.priceToCoordinate(last.value);
+        if (x !== null && y !== null) setDotPos({ x, y });
+        else setDotPos(null);
+      };
+
       chart.timeScale().fitContent();
-      updateDot();
-    });
-
-    const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-      requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => {
+        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
         chart.timeScale().fitContent();
         updateDot();
       });
+
+      ro = new ResizeObserver(() => {
+        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+        requestAnimationFrame(() => {
+          chart.timeScale().fitContent();
+          updateDot();
+        });
+      });
+      ro.observe(el);
     });
-    ro.observe(el);
 
     return () => {
-      cancelAnimationFrame(rafId);
-      ro.disconnect();
-      chart.remove();
+      isMounted = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (ro) ro.disconnect();
+      if (chart) chart.remove();
       seriesRef.current = null;
       setDotPos(null);
     };

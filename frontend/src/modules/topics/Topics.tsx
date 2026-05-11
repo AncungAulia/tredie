@@ -5,7 +5,8 @@ import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Crown } from "lucide-react";
-import CardChart from "@/components/chart/CardChart";
+import dynamic from "next/dynamic";
+const CardChart = dynamic(() => import("@/components/chart/CardChart"), { ssr: false });
 
 function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number): string {
   if (!fdvLamports || solPriceUsd === 0) return "—";

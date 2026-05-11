@@ -18,7 +18,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/tokens/") || pathname.startsWith("/topics/");
 
   return (
-    <div className="flex min-h-screen [overflow-x:clip]">
+    <div className="flex min-h-screen overflow-x-hidden">
       <Sidebar />
       <div
         className={`flex flex-col flex-1 transition-all duration-300 ${
@@ -28,7 +28,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
         <Header />
         <motion.main
           style={isHideNav ? undefined : { x }}
-          className={`flex-1 pt-24 md:pb-12 px-8 md:px-12 ${isHideNav ? "pb-8" : "pb-20"}`}
+          className={`flex-1 pt-20 md:pt-24 md:pb-12 px-8 md:px-12 ${isHideNav ? "pb-8" : "pb-20"}`}
         >
           {children}
         </motion.main>

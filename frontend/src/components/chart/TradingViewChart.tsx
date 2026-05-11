@@ -1,14 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import {
-  createChart,
-  ColorType,
-  CrosshairMode,
-  LineStyle,
-  LineType,
-  AreaSeries,
-  CandlestickSeries,
-} from "lightweight-charts";
 
 export type LinePoint = { time: number; value: number };
 export type CandlePoint = {
@@ -127,268 +118,289 @@ export default function TradingViewChart({
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
+    let chart: any;
+    let ro: ResizeObserver | undefined;
+    let isMounted = true;
 
-    const chart = createChart(el, {
-      handleScroll: false,
-      handleScale: false,
-      layout: {
-        attributionLogo: false,
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "rgba(255,255,255,0.28)",
-        fontSize: 11,
-      },
-      grid: {
-        vertLines: { visible: false },
-        horzLines: { color: "rgba(255,255,255,0.08)", visible: true },
-      },
-      crosshair: {
-        mode: CrosshairMode.Normal,
-        vertLine: {
-          color: "rgba(255,255,255,0.15)",
-          style: LineStyle.Dashed,
-          labelVisible: false,
+    import("lightweight-charts").then(({
+      createChart,
+      ColorType,
+      CrosshairMode,
+      LineStyle,
+      LineType,
+      AreaSeries,
+      CandlestickSeries,
+    }) => {
+      if (!isMounted || !containerRef.current) return;
+
+      chart = createChart(el, {
+        handleScroll: false,
+        handleScale: false,
+        layout: {
+          attributionLogo: false,
+          background: { type: ColorType.Solid, color: "transparent" },
+          textColor: "rgba(255,255,255,0.28)",
+          fontSize: 11,
         },
-        horzLine: {
-          color: "rgba(255,255,255,0.08)",
-          style: LineStyle.Dashed,
-          labelVisible: false,
+        grid: {
+          vertLines: { visible: false },
+          horzLines: { color: "rgba(255,255,255,0.08)", visible: true },
         },
-      },
-      rightPriceScale: {
-        borderVisible: false,
-        visible: false,
-        scaleMargins: { top: 0.10, bottom: 0.08 },
-      },
-      timeScale: {
-        borderVisible: false,
-        visible: false,
-        rightOffset: 2,
-        lockVisibleTimeRangeOnResize: true,
-      },
-      width: el.clientWidth,
-      height: el.clientHeight,
-    });
-
-    const priceFormat = {
-      type: "custom" as const,
-      formatter: fmt,
-      minMove: 0.000001,
-    };
-
-    const useCandle = chartType === "candle" && candleData.length > 0;
-
-    if (useCandle) {
-      const cs = chart.addSeries(CandlestickSeries, {
-        upColor: "#22C55E",
-        downColor: "#EF4444",
-        borderUpColor: "#22C55E",
-        borderDownColor: "#EF4444",
-        wickUpColor: "#22C55E",
-        wickDownColor: "#EF4444",
-        priceFormat,
-      });
-      cs.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
-      dataSeriesRef.current = cs;
-      fgSeriesRef.current = cs;
-    } else if (lineData.length > 0) {
-      const allData = lineData.map((d) => ({ ...d, time: d.time as any }));
-
-      // Invisible series — never mutated, used only for param.seriesData reads
-      const ds = chart.addSeries(AreaSeries, {
-        lineColor: "rgba(0,0,0,0)",
-        topColor: "rgba(0,0,0,0)",
-        bottomColor: "rgba(0,0,0,0)",
-        crosshairMarkerRadius: 0,
-        crosshairMarkerBorderWidth: 0,
-        priceLineVisible: false,
-        priceFormat,
-      });
-      ds.setData(allData);
-      dataSeriesRef.current = ds;
-
-      // Single bright series — full data always
-      const fg = chart.addSeries(AreaSeries, {
-        lineColor: color,
-        topColor: `${color}22`,
-        bottomColor: `${color}00`,
-        lineWidth: 2,
-        crosshairMarkerRadius: 0,
-        crosshairMarkerBorderWidth: 0,
-        priceLineVisible: false,
-        lineType: LineType.Curved,
-        priceFormat,
-      });
-      fg.setData(allData);
-      fgSeriesRef.current = fg;
-
-      fg.createPriceLine({
-        price: lineData[lineData.length - 1].value,
-        color: `${color}80`,
-        lineWidth: 1,
-        lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false,
-        title: "",
-      });
-    }
-
-    const updateLinePoints = () => {
-      if (useCandle || lineData.length === 0) { linePointsRef.current = []; return; }
-      linePointsRef.current = lineData
-        .map((d) => {
-          const x = chart.timeScale().timeToCoordinate(d.time as any);
-          return x !== null ? { x, v: d.value, t: d.time } : null;
-        })
-        .filter(Boolean) as { x: number; v: number; t: number }[];
-    };
-
-    const updateDot = () => {
-      const fg = fgSeriesRef.current;
-      if (!fg || useCandle || lineData.length === 0) { setDotPos(null); return; }
-      const last = lineData[lineData.length - 1];
-      const x = chart.timeScale().timeToCoordinate(last.time as any);
-      const y = fg.priceToCoordinate(last.value);
-      if (x !== null && y !== null) setDotPos({ x, y });
-      else setDotPos(null);
-    };
-
-    const updateBrightPts = () => {
-      if (useCandle || lineData.length === 0) { setBrightPts([]); return; }
-      const fg = fgSeriesRef.current;
-      if (!fg) return;
-      const pts = lineData
-        .map((d) => {
-          const x = chart.timeScale().timeToCoordinate(d.time as any);
-          const y = fg.priceToCoordinate(d.value);
-          return x !== null && y !== null ? { x: x as number, y: y as number } : null;
-        })
-        .filter(Boolean) as { x: number; y: number }[];
-      setBrightPts(pts);
-    };
-
-    chart.timeScale().fitContent();
-    // Defer coordinate calculation by one frame so the chart has finished
-    // applying fitContent() before we read timeToCoordinate/priceToCoordinate
-    requestAnimationFrame(() => {
-      updateDot();
-      updateLinePoints();
-      updateBrightPts();
-    });
-
-    chart.subscribeCrosshairMove((param) => {
-      // Ignore library crosshair events fired after resize with stale positions
-      if (!isPointerOverRef.current) return;
-
-      // Cancel return animation when user re-enters chart
-      if (animFrameRef.current !== null) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-
-      const fg = fgSeriesRef.current;
-      const ds = dataSeriesRef.current;
-
-      if (!param.time || !param.point || !ds) {
-        setTooltip(null);
-        setHoverDot(null);
-        setClipX(null);
-        return;
-      }
-
-      setClipX(param.point.x);
-
-      // Hover dot: interpolate Y on line at cursor X; clamp to last point if past end
-      if (!useCandle && fg) {
-        const pts = linePointsRef.current;
-        let dotX = param.point.x as number;
-        let lineY: number | null = null;
-
-        for (let i = 0; i < pts.length - 1; i++) {
-          if (pts[i].x <= param.point.x && pts[i + 1].x >= param.point.x) {
-            const t = (param.point.x - pts[i].x) / (pts[i + 1].x - pts[i].x);
-            const interpV = pts[i].v + t * (pts[i + 1].v - pts[i].v);
-            lineY = fg.priceToCoordinate(interpV) ?? null;
-            break;
-          }
-        }
-
-        if (lineY === null && pts.length > 0 && param.point.x >= pts[pts.length - 1].x) {
-          dotX = pts[pts.length - 1].x;
-          lineY = fg.priceToCoordinate(pts[pts.length - 1].v) ?? null;
-        }
-
-        if (lineY !== null) {
-          lastHoverXRef.current = dotX;
-          setHoverDot({ x: dotX, y: lineY });
-        } else {
-          // Track X even when off the data range (for return animation start point)
-          lastHoverXRef.current = param.point.x;
-          setHoverDot(null);
-        }
-      }
-
-      const raw = param.seriesData.get(ds) as any;
-      if (!raw) { setTooltip(null); return; }
-
-      const flipLeft = param.point.x > el.clientWidth - 140;
-
-      if ("value" in raw) {
-        const price =
-          virtualSupplyRef.current != null
-            ? fmtMcap(raw.value, virtualSupplyRef.current, solPriceUsdRef.current ?? 0)
-            : `${fmt(raw.value)} SOL`;
-        setTooltip({
-          time: formatTooltipTime(param.time as number),
-          price,
-          x: param.point.x,
-          y: param.point.y,
-          flipLeft,
-        });
-      } else {
-        setTooltip({
-          time: formatTooltipTime(param.time as number),
-          price: `${fmt(raw.close)} SOL`,
-          ohlc: {
-            o: fmt(raw.open),
-            h: fmt(raw.high),
-            l: fmt(raw.low),
-            c: fmt(raw.close),
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            color: "rgba(255,255,255,0.15)",
+            style: LineStyle.Dashed,
+            labelVisible: false,
           },
-          x: param.point.x,
-          y: param.point.y,
-          flipLeft,
+          horzLine: {
+            color: "rgba(255,255,255,0.08)",
+            style: LineStyle.Dashed,
+            labelVisible: false,
+          },
+        },
+        rightPriceScale: {
+          borderVisible: false,
+          visible: false,
+          scaleMargins: { top: 0.10, bottom: 0.08 },
+        },
+        timeScale: {
+          borderVisible: false,
+          visible: false,
+          rightOffset: 2,
+          lockVisibleTimeRangeOnResize: true,
+        },
+        width: el.clientWidth,
+        height: el.clientHeight,
+      });
+
+      const priceFormat = {
+        type: "custom" as const,
+        formatter: fmt,
+        minMove: 0.000001,
+      };
+
+      const useCandle = chartType === "candle" && candleData.length > 0;
+
+      if (useCandle) {
+        const cs = chart.addSeries(CandlestickSeries, {
+          upColor: "#22C55E",
+          downColor: "#EF4444",
+          borderUpColor: "#22C55E",
+          borderDownColor: "#EF4444",
+          wickUpColor: "#22C55E",
+          wickDownColor: "#EF4444",
+          priceFormat,
+        });
+        cs.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
+        dataSeriesRef.current = cs;
+        fgSeriesRef.current = cs;
+      } else if (lineData.length > 0) {
+        const allData = lineData.map((d) => ({ ...d, time: d.time as any }));
+
+        // Invisible series — never mutated, used only for param.seriesData reads
+        const ds = chart.addSeries(AreaSeries, {
+          lineColor: "rgba(0,0,0,0)",
+          topColor: "rgba(0,0,0,0)",
+          bottomColor: "rgba(0,0,0,0)",
+          crosshairMarkerRadius: 0,
+          crosshairMarkerBorderWidth: 0,
+          priceLineVisible: false,
+          priceFormat,
+        });
+        ds.setData(allData);
+        dataSeriesRef.current = ds;
+
+        // Single bright series — full data always
+        const fg = chart.addSeries(AreaSeries, {
+          lineColor: color,
+          topColor: `${color}22`,
+          bottomColor: `${color}00`,
+          lineWidth: 2,
+          crosshairMarkerRadius: 0,
+          crosshairMarkerBorderWidth: 0,
+          priceLineVisible: false,
+          lineType: LineType.Curved,
+          priceFormat,
+        });
+        fg.setData(allData);
+        fgSeriesRef.current = fg;
+
+        fg.createPriceLine({
+          price: lineData[lineData.length - 1].value,
+          color: `${color}80`,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: false,
+          title: "",
         });
       }
-    });
 
-    const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      const updateLinePoints = () => {
+        const useCandle = chartType === "candle" && candleData.length > 0;
+        if (useCandle || lineData.length === 0) { linePointsRef.current = []; return; }
+        linePointsRef.current = lineData
+          .map((d) => {
+            const x = chart.timeScale().timeToCoordinate(d.time as any);
+            return x !== null ? { x, v: d.value, t: d.time } : null;
+          })
+          .filter(Boolean) as { x: number; v: number; t: number }[];
+      };
+
+      const updateDot = () => {
+        const fg = fgSeriesRef.current;
+        const useCandle = chartType === "candle" && candleData.length > 0;
+        if (!fg || useCandle || lineData.length === 0) { setDotPos(null); return; }
+        const last = lineData[lineData.length - 1];
+        const x = chart.timeScale().timeToCoordinate(last.time as any);
+        const y = fg.priceToCoordinate(last.value);
+        if (x !== null && y !== null) setDotPos({ x, y });
+        else setDotPos(null);
+      };
+
+      const updateBrightPts = () => {
+        const useCandle = chartType === "candle" && candleData.length > 0;
+        if (useCandle || lineData.length === 0) { setBrightPts([]); return; }
+        const fg = fgSeriesRef.current;
+        if (!fg) return;
+        const pts = lineData
+          .map((d) => {
+            const x = chart.timeScale().timeToCoordinate(d.time as any);
+            const y = fg.priceToCoordinate(d.value);
+            return x !== null && y !== null ? { x: x as number, y: y as number } : null;
+          })
+          .filter(Boolean) as { x: number; y: number }[];
+        setBrightPts(pts);
+      };
+
       chart.timeScale().fitContent();
-      // Clear stale hover state — coordinates are invalid after resize
-      isPointerOverRef.current = false;
-      setTooltip(null);
-      setHoverDot(null);
-      lastHoverXRef.current = null;
-      if (animFrameRef.current !== null) {
-        cancelAnimationFrame(animFrameRef.current);
-        animFrameRef.current = null;
-      }
-      // Defer coordinate recalculation by one frame (same reason as initial mount)
+      // Defer coordinate calculation by one frame so the chart has finished
+      // applying fitContent() before we read timeToCoordinate/priceToCoordinate
       requestAnimationFrame(() => {
         updateDot();
         updateLinePoints();
         updateBrightPts();
       });
+
+      chart.subscribeCrosshairMove((param: any) => {
+        // Ignore library crosshair events fired after resize with stale positions
+        if (!isPointerOverRef.current) return;
+
+        // Cancel return animation when user re-enters chart
+        if (animFrameRef.current !== null) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+
+        const fg = fgSeriesRef.current;
+        const ds = dataSeriesRef.current;
+        const useCandle = chartType === "candle" && candleData.length > 0;
+
+        if (!param.time || !param.point || !ds) {
+          setTooltip(null);
+          setHoverDot(null);
+          setClipX(null);
+          return;
+        }
+
+        setClipX(param.point.x);
+
+        // Hover dot: interpolate Y on line at cursor X; clamp to last point if past end
+        if (!useCandle && fg) {
+          const pts = linePointsRef.current;
+          let dotX = param.point.x as number;
+          let lineY: number | null = null;
+
+          for (let i = 0; i < pts.length - 1; i++) {
+            if (pts[i].x <= param.point.x && pts[i + 1].x >= param.point.x) {
+              const t = (param.point.x - pts[i].x) / (pts[i + 1].x - pts[i].x);
+              const interpV = pts[i].v + t * (pts[i + 1].v - pts[i].v);
+              lineY = fg.priceToCoordinate(interpV) ?? null;
+              break;
+            }
+          }
+
+          if (lineY === null && pts.length > 0 && param.point.x >= pts[pts.length - 1].x) {
+            dotX = pts[pts.length - 1].x;
+            lineY = fg.priceToCoordinate(pts[pts.length - 1].v) ?? null;
+          }
+
+          if (lineY !== null) {
+            lastHoverXRef.current = dotX;
+            setHoverDot({ x: dotX, y: lineY });
+          } else {
+            // Track X even when off the data range (for return animation start point)
+            lastHoverXRef.current = param.point.x;
+            setHoverDot(null);
+          }
+        }
+
+        const raw = param.seriesData.get(ds) as any;
+        if (!raw) { setTooltip(null); return; }
+
+        const flipLeft = param.point.x > el.clientWidth - 140;
+
+        if ("value" in raw) {
+          const price =
+            virtualSupplyRef.current != null
+              ? fmtMcap(raw.value, virtualSupplyRef.current, solPriceUsdRef.current ?? 0)
+              : `${fmt(raw.value)} SOL`;
+          setTooltip({
+            time: formatTooltipTime(param.time as number),
+            price,
+            x: param.point.x,
+            y: param.point.y,
+            flipLeft,
+          });
+        } else {
+          setTooltip({
+            time: formatTooltipTime(param.time as number),
+            price: `${fmt(raw.close)} SOL`,
+            ohlc: {
+              o: fmt(raw.open),
+              h: fmt(raw.high),
+              l: fmt(raw.low),
+              c: fmt(raw.close),
+            },
+            x: param.point.x,
+            y: param.point.y,
+            flipLeft,
+          });
+        }
+      });
+
+      ro = new ResizeObserver(() => {
+        chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+        chart.timeScale().fitContent();
+        // Clear stale hover state — coordinates are invalid after resize
+        isPointerOverRef.current = false;
+        setTooltip(null);
+        setHoverDot(null);
+        lastHoverXRef.current = null;
+        if (animFrameRef.current !== null) {
+          cancelAnimationFrame(animFrameRef.current);
+          animFrameRef.current = null;
+        }
+        // Defer coordinate recalculation by one frame (same reason as initial mount)
+        requestAnimationFrame(() => {
+          updateDot();
+          updateLinePoints();
+          updateBrightPts();
+        });
+      });
+      ro.observe(el);
+
+      // If cursor was already inside the chart when this effect re-ran (e.g. after
+      // lineData update), recover hover state so crosshair events aren't dropped.
+      if (outerRef.current?.matches?.(':hover')) {
+        isPointerOverRef.current = true;
+      }
     });
-    ro.observe(el);
-    // If cursor was already inside the chart when this effect re-ran (e.g. after
-    // lineData update), recover hover state so crosshair events aren't dropped.
-    if (outerRef.current?.matches?.(':hover')) {
-      isPointerOverRef.current = true;
-    }
 
     return () => {
-      ro.disconnect();
-      chart.remove();
+      isMounted = false;
+      if (ro) ro.disconnect();
+      if (chart) chart.remove();
       if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;

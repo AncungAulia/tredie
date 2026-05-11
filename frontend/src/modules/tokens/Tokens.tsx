@@ -6,7 +6,8 @@ import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import CardChart from "@/components/chart/CardChart";
+import dynamic from "next/dynamic";
+const CardChart = dynamic(() => import("@/components/chart/CardChart"), { ssr: false });
 
 function TokenAvatar({ market, size = "sm" }: { market: Market; size?: "sm" | "md" }) {
   const [imgError, setImgError] = useState(false);
