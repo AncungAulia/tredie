@@ -6,13 +6,15 @@ import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import CardChart from "@/components/chart/CardChart";
 
-function MiniLineChart({ data, color = "#9C93E8", tall = false }: { data: number[]; color?: string; tall?: boolean }) {
+// SVG sparkline — kept for desktop grid cards (small h-12 area where full chart is overkill)
+function MiniLineChart({ data, color = "#9C93E8" }: { data: number[]; color?: string }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
   const isFlat = max === min;
   const range = max - min || 1;
-  const h = tall ? 180 : 48;
+  const h = 48;
   const w = 160;
   const step = w / (data.length - 1);
 
@@ -42,7 +44,7 @@ function MiniLineChart({ data, color = "#9C93E8", tall = false }: { data: number
   }, []);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={tall ? "w-full h-full" : "w-full h-12"} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-12" preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -92,7 +94,6 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
   const mindshare = market.current_mindshare_bps / 100;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
   const rawSparkline = (market.price_sparkline_24h ?? []);
-  const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -142,9 +143,9 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
           <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
-        {/* Large sparkline */}
-        <div className="flex-1 min-h-0 mt-4">
-          <MiniLineChart data={sparkline} color={color} tall />
+        {/* Full-height chart — OHLC data, identical pipeline to token detail 24H */}
+        <div className="flex-1 min-h-0 mt-4 rounded-xl overflow-hidden">
+          <CardChart identifier={market.identifier} market={market} color={color} />
         </div>
 
         {/* Bottom stats */}
@@ -153,7 +154,6 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
             <span className="text-[11px] text-white/30 uppercase tracking-wider">Vol 24h</span>
             <span className="text-sm font-mono text-white/70">{formatVolume(market.volume_24h_lamports)} SOL</span>
           </div>
-         
           <div className="bg-[rgba(156,147,232,0.12)] text-[#9C93E8] px-3 py-1.5 rounded-lg text-sm font-mono font-bold">
             {ratchet.toFixed(1)}x
           </div>
@@ -294,10 +294,10 @@ export default function Tokens() {
 
   return (
     <>
-      {/* Mobile: TikTok-style full-screen snap scroll — always rendered at position 0 to preserve scrollTop */}
+      {/* Mobile: TikTok-style full-screen snap scroll */}
       <div
         ref={mobileScrollRef}
-        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory${isDetailRoute ? " invisible pointer-events-none" : ""}`}
+        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory overscroll-y-none${isDetailRoute ? " invisible pointer-events-none" : ""}`}
         aria-hidden={isDetailRoute || undefined}
       >
         {isLoading
@@ -331,11 +331,11 @@ export default function Tokens() {
               const mindshare = market.current_mindshare_bps / 100;
               const ratchet = market.ratchet_multiplier_bps / 10_000;
               const rawSparkline = (market.price_sparkline_24h ?? []);
-              const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
               const sparklineDelta =
                 rawSparkline.length >= 2 && rawSparkline[0] !== 0
                   ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
                   : 0;
+              const color = sparklineDelta >= 0 ? "#9C93E8" : "#EF4444";
 
               return (
                 <Link href={`/tokens/${encodeURIComponent(market.identifier)}`} key={market.identifier}>
@@ -372,7 +372,8 @@ export default function Tokens() {
                       <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
                     </div>
 
-                    <MiniLineChart data={sparkline} />
+                    {/* Desktop card chart — OHLC data, identical pipeline to token detail 24H */}
+                    <CardChart identifier={market.identifier} market={market} color={color} heightClass="h-12" />
 
                     <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
                       <div className="flex items-center gap-2">

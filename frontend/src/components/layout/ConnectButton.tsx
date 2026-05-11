@@ -56,9 +56,12 @@ export default function ConnectButton() {
   if (!mounted || !ready) {
     label = "Connect Wallet";
   } else if (authenticated) {
-    const activeAddress = wallets[0]?.address;
+    // Prefer external wallet over embedded (embedded wallet has walletClientType === 'privy' and 0 SOL)
+    const activeAddress =
+      wallets.find((w) => w.walletClientType !== "privy")?.address ??
+      wallets[0]?.address;
     const linkedSolanaAddress = (user?.linkedAccounts as any[])
-      ?.find(a => a.type === "wallet" && a.chainType === "solana")
+      ?.find((a) => a.type === "wallet" && a.chainType === "solana")
       ?.address as string | undefined;
     const solanaAddress = activeAddress ?? linkedSolanaAddress;
 

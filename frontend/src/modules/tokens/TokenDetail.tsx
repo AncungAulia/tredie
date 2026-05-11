@@ -10,13 +10,12 @@ import { usePrivy, useLogin } from "@privy-io/react-auth";
 import { useMarketDetail } from "@/hooks/useMarketDetail";
 import { useMarketRealtime } from "@/hooks/useMarketRealtime";
 import { useOHLC } from "@/hooks/useOHLC";
-import { ArrowLeft, Copy, BarChart2, TrendingUp, Info } from "lucide-react";
+import { ArrowLeft, Copy, Info } from "lucide-react";
 import Link from "next/link";
 import TradingViewChart from "@/components/chart/TradingViewChart";
 import type { OHLCInterval } from "@/types/api";
 
 type TimeRange = "24H" | "1W" | "1M" | "ALL";
-type ChartType = "line" | "candle";
 
 const TIME_RANGES: TimeRange[] = ["24H", "1W", "1M", "ALL"];
 
@@ -96,7 +95,6 @@ export default function TokenDetail({ id }: { id: string }) {
   const [tradeType, setTradeType] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState("0.01");
   const [timeRange, setTimeRange] = useState<TimeRange>("24H");
-  const [chartType, setChartType] = useState<ChartType>("line");
   const [copied, setCopied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -105,7 +103,11 @@ export default function TokenDetail({ id }: { id: string }) {
   const { authenticated } = usePrivy();
   const { login } = useLogin();
   const { wallets } = useWallets();
-  const walletAddress = wallets[0]?.address;
+  // Prefer external wallet (Phantom, etc.) over embedded Privy wallet.
+  // Embedded wallets have walletClientType === 'privy' and start with 0 SOL.
+  const walletAddress =
+    wallets.find((w) => w.walletClientType !== "privy")?.address ??
+    wallets[0]?.address;
 
   const interval = RANGE_TO_INTERVAL[timeRange];
   const limit = RANGE_LIMIT[timeRange];
@@ -205,19 +207,29 @@ export default function TokenDetail({ id }: { id: string }) {
       result.push({ time: now, value: lastPrice });
     }
 
-    return result;
-  }, [ohlcData, pricePerToken, timeRange]);
+    const TARGET = 35;
+    const sampled =
+      result.length > TARGET
+        ? Array.from({ length: TARGET }, (_, i) =>
+            result[Math.round((i * (result.length - 1)) / (TARGET - 1))]
+          )
+        : result;
 
-  const candleData = useMemo(() => {
-    if (!ohlcData?.candles?.length) return [];
-    return ohlcData.candles.map((c) => ({
-      time: Number(c.bucket ?? c.time),
-      open: Number(c.open) / 1000,
-      high: Number(c.high) / 1000,
-      low: Number(c.low) / 1000,
-      close: Number(c.close) / 1000,
-    }));
-  }, [ohlcData]);
+    // Weighted moving average — soften sharp corners for smoother curve rendering
+    const passes = 5;
+    let out = sampled;
+    for (let p = 0; p < passes; p++) {
+      out = out.map((d, i) => {
+        if (i === 0 || i === out.length - 1) return d;
+        return {
+          time: d.time,
+          value: out[i - 1].value * 0.25 + d.value * 0.5 + out[i + 1].value * 0.25,
+        };
+      });
+    }
+
+    return out;
+  }, [ohlcData, pricePerToken, timeRange]);
 
   const mindshare = market ? market.current_mindshare_bps / 100 : 0;
   const ratchet = market ? market.ratchet_multiplier_bps / 10_000 : 0;
@@ -360,9 +372,11 @@ export default function TokenDetail({ id }: { id: string }) {
             ) : (
               <TradingViewChart
                 lineData={lineData}
-                candleData={candleData}
-                chartType={chartType}
+                candleData={[]}
+                chartType="line"
                 color={chartColor}
+                virtualSupply={market ? Number(market.virtual_token_supply) / 1e6 : undefined}
+                solPriceUsd={market?.stats.sol_price_usd ?? 0}
               />
             )}
           </div>
@@ -388,20 +402,6 @@ export default function TokenDetail({ id }: { id: string }) {
                   </div>
                 </button>
               ))}
-            </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setChartType("line")}
-                className={`p-1.5 rounded transition-colors cursor-pointer ${chartType === "line" ? "text-white" : "text-white/25 hover:text-white/55"}`}
-              >
-                <TrendingUp size={15} />
-              </button>
-              <button
-                onClick={() => setChartType("candle")}
-                className={`p-1.5 rounded transition-colors cursor-pointer ${chartType === "candle" ? "text-white" : "text-white/25 hover:text-white/55"}`}
-              >
-                <BarChart2 size={15} />
-              </button>
             </div>
           </div>
 

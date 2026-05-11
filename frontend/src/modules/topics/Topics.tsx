@@ -1,87 +1,11 @@
 "use client";
-import { useId, useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Crown } from "lucide-react";
-
-function MiniLineChart({
-  data,
-  color = "#9C93E8",
-  tall = false,
-}: {
-  data: number[];
-  color?: string;
-  tall?: boolean;
-}) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const isFlat = max === min;
-  const range = max - min || 1;
-  const h = tall ? 180 : 48;
-  const w = 160;
-  const step = w / (data.length - 1);
-
-  const points = data
-    .map((val, i) => {
-      const x = i * step;
-      const y = isFlat ? h / 2 : h - ((val - min) / range) * h;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const id = useId();
-  const gradientId = `grad-${id.replace(/:/g, "")}`;
-
-  const lineRef = useRef<SVGPolylineElement>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const el = lineRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
-      { threshold: 0.1 }
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      className={tall ? "w-full h-full" : "w-full h-12"}
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon
-        points={`0,${h} ${points} ${w},${h}`}
-        fill={`url(#${gradientId})`}
-        style={{ opacity: visible ? 1 : 0, transition: "opacity 0.3s ease-out" }}
-      />
-      <polyline
-        ref={lineRef}
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{
-          strokeDasharray: 1000,
-          strokeDashoffset: visible ? 0 : 1000,
-          transition: visible ? "stroke-dashoffset 2.5s ease-out" : "none",
-        }}
-      />
-    </svg>
-  );
-}
+import CardChart from "@/components/chart/CardChart";
 
 function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number): string {
   if (!fdvLamports || solPriceUsd === 0) return "—";
@@ -102,12 +26,12 @@ function formatVolume(lamports: string): string {
 function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
   const mindshare = market.current_mindshare_bps / 100;
   const rawSparkline = (market.price_sparkline_24h ?? []);
-  const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
       : 0;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
+  const color = sparklineDelta >= 0 ? "#9C93E8" : "#EF4444";
 
   return (
     <Link href={`/topics/${encodeURIComponent(market.identifier)}`}>
@@ -156,7 +80,8 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
           <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
-        <MiniLineChart data={sparkline} />
+        {/* Desktop card chart — OHLC data, same pipeline as token detail 24H */}
+        <CardChart identifier={market.identifier} market={market} color={color} heightClass="h-12" />
 
         <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
           <div className="flex items-center gap-2">
@@ -179,7 +104,6 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
 function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
   const mindshare = market.current_mindshare_bps / 100;
   const rawSparkline = (market.price_sparkline_24h ?? []);
-  const sparkline = rawSparkline.length >= 2 ? rawSparkline : [0, 0];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -228,8 +152,9 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
           <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
-        <div className="flex-1 min-h-0 mt-4">
-          <MiniLineChart data={sparkline} color={color} tall />
+        {/* Full-height chart — OHLC data, identical pipeline to token detail 24H */}
+        <div className="flex-1 min-h-0 mt-4 rounded-xl overflow-hidden">
+          <CardChart identifier={market.identifier} market={market} color={color} />
         </div>
 
         <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-4">
@@ -487,7 +412,7 @@ export default function Topics() {
     <>
       <div
         ref={mobileScrollRef}
-        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory${isDetailRoute ? " invisible pointer-events-none" : ""}`}
+        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory overscroll-y-none${isDetailRoute ? " invisible pointer-events-none" : ""}`}
         aria-hidden={isDetailRoute || undefined}
       >
         {isLoading
