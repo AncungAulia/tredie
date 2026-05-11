@@ -18,7 +18,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith("/tokens/") || pathname.startsWith("/topics/");
 
   return (
-    <div className="flex min-h-screen overflow-x-hidden">
+    <div className="flex min-h-screen">
       <Sidebar />
       <div
         className={`flex flex-col flex-1 transition-all duration-300 ${

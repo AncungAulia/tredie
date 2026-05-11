@@ -15,6 +15,7 @@ const isTouchDevice = () =>
 
 export default function ConnectButton() {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
@@ -95,6 +96,23 @@ export default function ConnectButton() {
     if (!solanaAddress) return;
     navigator.clipboard.writeText(solanaAddress);
     setCopied(true);
+
+    // GSAP Pop/Tilt effect
+    if (copyButtonRef.current) {
+      gsap.fromTo(
+        copyButtonRef.current,
+        { rotationX: 0, scale: 1 },
+        {
+          rotationX: -15,
+          scale: 0.98,
+          duration: 0.1,
+          yoyo: true,
+          repeat: 1,
+          ease: "power2.out",
+        }
+      );
+    }
+
     setTimeout(() => setCopied(false), 1500);
   }, [solanaAddress]);
 
@@ -190,22 +208,31 @@ export default function ConnectButton() {
 
         {/* Copy */}
         <button
+          ref={copyButtonRef}
           onClick={handleCopy}
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-white/75 hover:text-white active:text-white hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors text-left"
+          className="w-full relative h-[46px] overflow-hidden cursor-pointer hover:bg-white/[0.06] active:bg-white/[0.08] transition-colors text-left"
         >
-          {copied
-            ? <Check size={15} className="text-[#22C55E] shrink-0" />
-            : <Copy size={15} className="text-white/40 shrink-0" />}
-          <span className="font-mono text-xs">{copied ? "Copied!" : "Copy address"}</span>
+          <div className={`flex flex-col transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${copied ? "-translate-y-1/2" : ""}`}>
+            {/* Default state */}
+            <div className="flex items-center gap-3 px-4 py-3.5 text-white/75">
+              <Copy size={15} className="text-white/40 shrink-0" />
+              <span className="text-xs font-bold">Copy address</span>
+            </div>
+            {/* Copied state */}
+            <div className="flex items-center gap-3 px-4 py-3.5 text-[#22C55E]">
+              <Check size={15} className="shrink-0" />
+              <span className="text-xs font-bold">Copied!</span>
+            </div>
+          </div>
         </button>
 
         {/* Disconnect */}
         <button
           onClick={handleDisconnect}
-          className="w-full flex items-center gap-3 px-4 py-3.5 text-[#EF4444]/75 hover:text-[#EF4444] active:text-[#EF4444] hover:bg-[#EF4444]/[0.06] active:bg-[#EF4444]/[0.08] transition-colors text-left border-t border-white/[0.07]"
+          className="w-full cursor-pointer   flex items-center gap-3 px-4 py-3.5 text-[#EF4444]/75 hover:text-[#EF4444] active:text-[#EF4444] hover:bg-[#EF4444]/[0.06] active:bg-[#EF4444]/[0.08] transition-colors text-left border-t border-white/[0.07]"
         >
           <LogOut size={15} className="shrink-0" />
-          <span className="font-mono text-xs">Disconnect</span>
+          <span className="text-xs font-bold">Disconnect</span>
         </button>
       </div>
     </div>

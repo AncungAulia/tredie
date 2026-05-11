@@ -4,6 +4,7 @@ import "./globals.css";
 import AppLayout from "@/components/layout/AppLayout";
 import PrivyProviderWrapper from "@/components/providers/PrivyProviderWrapper";
 import QueryProvider from "@/providers/QueryProvider";
+import { Toaster } from "sonner";
 
 const Font1 = localFont({
   src: [{ path: "./fonts/font1.woff2", weight: "300", style: "normal" }],
@@ -47,6 +48,14 @@ export default function RootLayout({
             <AppLayout>{children}</AppLayout>
           </PrivyProviderWrapper>
         </QueryProvider>
+        <Toaster
+          theme="dark"
+          position="top-center"
+          icons={{ success: null, error: null, info: null, warning: null, loading: null }}
+          toastOptions={{
+            style: { background: "#141416", border: "1px solid rgba(255,255,255,0.08)", color: "#FAFAFA" },
+          }}
+        />
       </body>
     </html>
   );

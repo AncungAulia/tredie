@@ -46,9 +46,9 @@ export default function Sidebar() {
             <Image
               src="/tredie-icon-logo.svg"
               alt="Tredie"
-              width={72}
-              height={18}
-              className="h-3.5 w-auto shrink-0"
+              width={70}
+              height={15}
+              className="h-[11.3px] w-auto shrink-0"
             />
           </span>
         </Link>

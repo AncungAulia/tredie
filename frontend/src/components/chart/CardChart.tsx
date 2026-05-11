@@ -62,10 +62,7 @@ export default function CardChart({
       .filter((c) => c.time >= now - lookback)
       .sort((a, b) => a.time - b.time);
 
-    const from =
-      sorted.length > 0
-        ? Math.floor(sorted[0].time / step) * step
-        : Math.floor((now - lookback) / step) * step;
+    const from = Math.floor((now - lookback) / step) * step;
 
     const result: { time: number; value: number }[] = [];
     let lastPrice = pricePerToken;

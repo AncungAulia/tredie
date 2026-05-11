@@ -17,26 +17,30 @@ export default function Header() {
         collapsed ? "md:left-[60px]" : "md:left-[220px]"
       }`}
     >
-      {/* Mobile: search icon (left) */}
-      <button
-        onClick={() => setSearchOpen(true)}
-        className="md:hidden flex items-center justify-center w-10 h-10 -ml-2 rounded-full text-white/50 hover:text-white transition-colors"
-      >
-        <Search size={20} />
-      </button>
+      {/* Left section: Mobile search button / Desktop spacer */}
+      <div className="flex-1 flex items-center">
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="md:hidden flex items-center justify-center w-10 h-10 -ml-2 rounded-full text-white/50 hover:text-white transition-colors"
+        >
+          <Search size={20} />
+        </button>
+      </div>
 
-      {/* Mobile: logo (center) | Desktop: search bar (left) */}
-      <div className="flex-1 flex items-center justify-center md:justify-start">
+      {/* Center section: Mobile logo / Desktop search bar */}
+      <div className="flex-[2] md:flex-1 flex items-center justify-center">
         <div className="md:hidden">
           <Logo />
         </div>
-        <div className="hidden md:block w-full max-w-sm">
+        <div className="hidden md:block w-full max-w-2xl">
           <SearchBar />
         </div>
       </div>
 
-      {/* Wallet — both mobile and desktop */}
-      <ConnectButton />
+      {/* Right section: Wallet button */}
+      <div className="flex-1 flex items-center justify-end">
+        <ConnectButton />
+      </div>
 
       <MobileSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </header>
