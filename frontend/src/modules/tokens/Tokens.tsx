@@ -1,5 +1,6 @@
 "use client";
 import { useId, useRef, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useMarketStore, type TokenCategory } from "@/store/useMarketStore";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
@@ -163,12 +164,14 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
 }
 
 export default function Tokens() {
+  const pathname = usePathname();
+  const isDetailRoute = pathname.startsWith("/tokens/");
   const { activeTokenCategory, setTokenCategory } = useMarketStore();
   const [showToggle, setShowToggle] = useState(true);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const isChangingCategory = useRef(false);
-
+  const categoryEffectMounted = useRef(false);
   useEffect(() => {
     const el = mobileScrollRef.current;
     if (!el) return;
@@ -222,11 +225,20 @@ export default function Tokens() {
   const categories: TokenCategory[] = ["Trending", "Latest", "Top"];
 
   useEffect(() => {
+    if (!categoryEffectMounted.current) {
+      categoryEffectMounted.current = true;
+      return;
+    }
     requestAnimationFrame(() => {
       mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
       lastScrollTop.current = 0;
     });
   }, [activeTokenCategory]);
+
+  // Show toggle again when returning from detail to list
+  useEffect(() => {
+    if (!isDetailRoute) setShowToggle(true);
+  }, [isDetailRoute]);
 
   function handleCategoryChange(cat: TokenCategory) {
     isChangingCategory.current = true;
@@ -257,10 +269,10 @@ export default function Tokens() {
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`relative z-10 flex-1 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
+            className={`relative z-10 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
               mobile
-                ? `px-5 py-1.5 text-xs ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
-                : `px-6 py-2 text-sm ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+                ? `w-20 py-1.5 text-xs ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
+                : `w-24 py-2 text-sm ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
             }`}
           >
             {cat}
@@ -272,10 +284,12 @@ export default function Tokens() {
 
   return (
     <>
-      {categoryToggle(true)}
-
-      {/* Mobile: TikTok-style full-screen snap scroll */}
-      <div ref={mobileScrollRef} className="md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory">
+      {/* Mobile: TikTok-style full-screen snap scroll — always rendered at position 0 to preserve scrollTop */}
+      <div
+        ref={mobileScrollRef}
+        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory${isDetailRoute ? " invisible pointer-events-none" : ""}`}
+        aria-hidden={isDetailRoute || undefined}
+      >
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
@@ -285,8 +299,10 @@ export default function Tokens() {
             ))}
       </div>
 
+      {!isDetailRoute && categoryToggle(true)}
+
       {/* Desktop: grid layout */}
-      <div className="hidden md:flex flex-col gap-8 w-full">
+      {!isDetailRoute && <div className="hidden md:flex flex-col gap-8 w-full">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-display font-bold">Tokens</h1>
         </div>
@@ -359,7 +375,7 @@ export default function Tokens() {
             })}
           </div>
         )}
-      </div>
+      </div>}
     </>
   );
 }

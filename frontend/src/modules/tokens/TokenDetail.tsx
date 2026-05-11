@@ -24,7 +24,7 @@ const RANGE_TO_INTERVAL: Record<TimeRange, OHLCInterval> = {
   "24H": "5m",
   "1W": "1h",
   "1M": "4h",
-  ALL: "1d",
+  ALL: "4h",
 };
 
 const RANGE_LIMIT: Record<TimeRange, number> = {
@@ -43,10 +43,10 @@ const RANGE_LOOKBACK_SEC: Record<TimeRange, number> = {
 
 // Step per titik di chart (time-based, bukan trade-based)
 const CHART_STEP_SEC: Record<TimeRange, number> = {
-  "24H": 10 * 60, // 10 menit
-  "1W": 30 * 60, // 30 menit
-  "1M": 2 * 3600, // 2 jam
-  ALL: 6 * 3600, // 6 jam
+  "24H": 10 * 60,
+  "1W": 30 * 60,
+  "1M": 1 * 3600,
+  ALL: 1 * 3600,
 };
 
 function formatSol(lamports: number): string {
@@ -75,8 +75,14 @@ function formatVolume(lamports: string): string {
 }
 
 function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number | undefined): string {
-  if (!fdvLamports || !solPriceUsd) return "—";
-  const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
+  if (!fdvLamports) return "—";
+  const sol = Number(fdvLamports) / 1e9;
+  if (!solPriceUsd) {
+    if (sol >= 1_000_000) return `${(sol / 1_000_000).toFixed(1)}M SOL`;
+    if (sol >= 1_000) return `${(sol / 1_000).toFixed(1)}K SOL`;
+    return `${sol.toFixed(1)} SOL`;
+  }
+  const usd = sol * solPriceUsd;
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
   if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
   if (usd >= 1) return `$${usd.toFixed(0)}`;
@@ -195,6 +201,10 @@ export default function TokenDetail({ id }: { id: string }) {
       result.push({ time: t, value: lastPrice });
     }
 
+    if (result.length > 0 && result[result.length - 1].time < now) {
+      result.push({ time: now, value: lastPrice });
+    }
+
     return result;
   }, [ohlcData, pricePerToken, timeRange]);
 
@@ -208,23 +218,6 @@ export default function TokenDetail({ id }: { id: string }) {
       close: Number(c.close) / 1000,
     }));
   }, [ohlcData]);
-
-  const volumeData = useMemo(() => {
-    if (!ohlcData?.candles?.length) return [];
-    return ohlcData.candles.map((c, i) => {
-      const prev = ohlcData.candles[i - 1];
-      const isUp = prev ? Number(c.close) >= Number(prev.close) : true;
-      return {
-        time: Number(c.bucket ?? c.time),
-        value: Number(c.volume),
-        color: isUp ? "rgba(34,197,94,0.35)" : "rgba(239,68,68,0.35)",
-      };
-    });
-  }, [ohlcData]);
-
-  const mcapFactor = market
-    ? (Number(market.virtual_token_supply) / 1e6) * (market.stats.sol_price_usd ?? 0)
-    : 0;
 
   const mindshare = market ? market.current_mindshare_bps / 100 : 0;
   const ratchet = market ? market.ratchet_multiplier_bps / 10_000 : 0;
@@ -368,10 +361,8 @@ export default function TokenDetail({ id }: { id: string }) {
               <TradingViewChart
                 lineData={lineData}
                 candleData={candleData}
-                volumeData={volumeData}
                 chartType={chartType}
                 color={chartColor}
-                mcapFactor={mcapFactor}
               />
             )}
           </div>

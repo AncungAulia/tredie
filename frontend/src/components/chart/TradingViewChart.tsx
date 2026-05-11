@@ -7,7 +7,6 @@ import {
   LineStyle,
   AreaSeries,
   CandlestickSeries,
-  HistogramSeries,
 } from "lightweight-charts";
 
 export type LinePoint = { time: number; value: number };
@@ -18,15 +17,12 @@ export type CandlePoint = {
   low: number;
   close: number;
 };
-export type VolumePoint = { time: number; value: number; color: string };
 
 interface Props {
   lineData: LinePoint[];
   candleData: CandlePoint[];
-  volumeData?: VolumePoint[];
   chartType: "line" | "candle";
   color?: string;
-  mcapFactor?: number; // virtualTokenSupply_human × solPriceUsd; if > 0, Y-axis shows USD mcap
 }
 
 type TooltipState = {
@@ -49,40 +45,20 @@ function formatTooltipTime(unix: number): string {
   });
 }
 
-function fmtSol(val: number): string {
-  if (val <= 0) return "0 SOL";
-  if (val >= 1) return `${val.toFixed(3)} SOL`;
-  if (val >= 0.001) return `${val.toFixed(5)} SOL`;
+function fmt(val: number): string {
+  if (val <= 0) return "0";
+  if (val >= 1) return val.toFixed(3);
+  if (val >= 0.001) return val.toFixed(5);
   const exp = Math.floor(Math.log10(val));
   const decimals = Math.min(-exp + 2, 10);
-  return `${val.toFixed(decimals).replace(/\.?0+$/, "") || "0"} SOL`;
-}
-
-function fmtUsd(val: number): string {
-  if (val <= 0) return "$0";
-  if (val >= 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(2)}B`;
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
-  if (val >= 1_000) return `$${(val / 1_000).toFixed(2)}K`;
-  if (val >= 1) return `$${val.toFixed(2)}`;
-  return `$${val.toFixed(4)}`;
-}
-
-function fmtUsdAxis(val: number): string {
-  if (val <= 0) return "$0";
-  if (val >= 1_000_000_000) return `$${(val / 1_000_000_000).toFixed(1)}B`;
-  if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000) return `$${(val / 1_000).toFixed(1)}K`;
-  if (val >= 1) return `$${val.toFixed(0)}`;
-  return `$${val.toFixed(2)}`;
+  return val.toFixed(decimals).replace(/\.?0+$/, "") || "0";
 }
 
 export default function TradingViewChart({
   lineData,
   candleData,
-  volumeData,
   chartType,
   color = "#9C93E8",
-  mcapFactor = 0,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>(null);
@@ -90,8 +66,6 @@ export default function TradingViewChart({
   useEffect(() => {
     if (!containerRef.current) return;
     const el = containerRef.current;
-    const isUsd = mcapFactor > 0;
-    const hasVolume = volumeData && volumeData.length > 0;
 
     const chart = createChart(el, {
       handleScroll: false,
@@ -99,12 +73,12 @@ export default function TradingViewChart({
       layout: {
         attributionLogo: false,
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "rgba(255,255,255,0.35)",
+        textColor: "rgba(255,255,255,0.28)",
         fontSize: 11,
       },
       grid: {
         vertLines: { visible: false },
-        horzLines: { color: "rgba(255,255,255,0.04)" },
+        horzLines: { color: "rgba(255,255,255,0.04)", visible: true },
       },
       crosshair: {
         mode: CrosshairMode.Normal,
@@ -116,45 +90,35 @@ export default function TradingViewChart({
         horzLine: {
           color: "rgba(255,255,255,0.08)",
           style: LineStyle.Dashed,
-          labelVisible: false,
+          labelVisible: true,
+          labelBackgroundColor: "#18181b",
         },
       },
       rightPriceScale: {
         borderVisible: false,
-        visible: isUsd,
-        scaleMargins: {
-          top: 0.08,
-          bottom: hasVolume ? 0.28 : 0.08,
-        },
+        visible: true,
+        scaleMargins: { top: 0.10, bottom: 0.08 },
       },
       timeScale: {
         borderVisible: false,
-        visible: true,
+        visible: false,
         rightOffset: 0,
         lockVisibleTimeRangeOnResize: true,
-        timeVisible: true,
-        secondsVisible: false,
       },
       width: el.clientWidth,
       height: el.clientHeight,
     });
 
-    const priceFormat = isUsd
-      ? ({ type: "custom", formatter: fmtUsdAxis, minMove: 0.01 } as any)
-      : undefined;
+    const priceFormat = {
+      type: "custom" as const,
+      formatter: fmt,
+      minMove: 0.000001,
+    };
 
     const useCandle = chartType === "candle" && candleData.length > 0;
     let currentSeries: ReturnType<typeof chart.addSeries> | null = null;
-    let dataLength = 0;
 
     if (useCandle) {
-      const transformed = candleData.map((d) => ({
-        time: d.time as any,
-        open: isUsd ? d.open * mcapFactor : d.open,
-        high: isUsd ? d.high * mcapFactor : d.high,
-        low: isUsd ? d.low * mcapFactor : d.low,
-        close: isUsd ? d.close * mcapFactor : d.close,
-      }));
       currentSeries = chart.addSeries(CandlestickSeries, {
         upColor: "#22C55E",
         downColor: "#EF4444",
@@ -164,16 +128,11 @@ export default function TradingViewChart({
         wickDownColor: "#EF4444",
         priceFormat,
       });
-      currentSeries.setData(transformed);
-      dataLength = transformed.length;
+      currentSeries.setData(candleData.map((d) => ({ ...d, time: d.time as any })));
     } else if (lineData.length > 0) {
-      const transformed = lineData.map((d) => ({
-        time: d.time as any,
-        value: isUsd ? d.value * mcapFactor : d.value,
-      }));
       currentSeries = chart.addSeries(AreaSeries, {
         lineColor: color,
-        topColor: `${color}22`,
+        topColor: `${color}18`,
         bottomColor: `${color}00`,
         lineWidth: 2,
         crosshairMarkerRadius: 3,
@@ -183,31 +142,10 @@ export default function TradingViewChart({
         priceLineVisible: false,
         priceFormat,
       });
-      currentSeries.setData(transformed);
-      dataLength = transformed.length;
+      currentSeries.setData(lineData.map((d) => ({ ...d, time: d.time as any })));
     }
 
-    if (hasVolume) {
-      const volSeries = chart.addSeries(HistogramSeries, {
-        priceFormat: { type: "volume" } as any,
-        priceScaleId: "vol",
-      } as any);
-      chart.priceScale("vol").applyOptions({
-        scaleMargins: { top: 0.78, bottom: 0 },
-        visible: false,
-      });
-      volSeries.setData(volumeData!.map((d) => ({ time: d.time as any, value: d.value, color: d.color })));
-    }
-
-    const fitEdgeToEdge = () => {
-      if (dataLength >= 2) {
-        chart.timeScale().setVisibleLogicalRange({ from: -0.5, to: dataLength - 0.5 });
-      } else {
-        chart.timeScale().fitContent();
-      }
-    };
-
-    fitEdgeToEdge();
+    chart.timeScale().fitContent();
 
     chart.subscribeCrosshairMove((param) => {
       if (!param.time || !param.point || !currentSeries) {
@@ -220,8 +158,7 @@ export default function TradingViewChart({
         return;
       }
 
-      const flipLeft = param.point.x > el.clientWidth - 160;
-      const fmt = isUsd ? fmtUsd : fmtSol;
+      const flipLeft = param.point.x > el.clientWidth - 140;
 
       if ("value" in raw) {
         setTooltip({
@@ -250,7 +187,7 @@ export default function TradingViewChart({
 
     const ro = new ResizeObserver(() => {
       chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-      fitEdgeToEdge();
+      chart.timeScale().fitContent();
     });
     ro.observe(el);
 
@@ -259,7 +196,7 @@ export default function TradingViewChart({
       chart.remove();
       setTooltip(null);
     };
-  }, [lineData, candleData, volumeData, chartType, color, mcapFactor]);
+  }, [lineData, candleData, chartType, color]);
 
   return (
     <div className="relative w-full h-full" onMouseLeave={() => setTooltip(null)}>
@@ -273,7 +210,7 @@ export default function TradingViewChart({
           }}
         >
           <div
-            className="rounded-xl px-3 py-2.5 flex flex-col gap-1.5 min-w-[120px] shadow-2xl"
+            className="rounded-xl px-3 py-2.5 flex flex-col gap-1.5 min-w-[110px] shadow-2xl"
             style={{
               background: "rgba(10,10,12,0.92)",
               border: "1px solid rgba(255,255,255,0.10)",
@@ -281,7 +218,7 @@ export default function TradingViewChart({
             }}
           >
             <span className="text-white font-mono font-semibold text-sm leading-none">
-              {tooltip.price}
+              {tooltip.price} SOL
             </span>
             {tooltip.ohlc && (
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">

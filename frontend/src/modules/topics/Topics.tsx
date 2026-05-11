@@ -1,5 +1,6 @@
 "use client";
 import { useId, useRef, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
@@ -238,12 +239,14 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
 type TopicCategory = "Trending" | "Latest" | "Top";
 
 export default function Topics() {
+  const pathname = usePathname();
+  const isDetailRoute = pathname.startsWith("/topics/");
   const [activeCategory, setActiveCategory] = useState<TopicCategory>("Trending");
   const [showToggle, setShowToggle] = useState(true);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const isChangingCategory = useRef(false);
-
+  const categoryEffectMounted = useRef(false);
   useEffect(() => {
     const el = mobileScrollRef.current;
     if (!el) return;
@@ -297,11 +300,20 @@ export default function Topics() {
   const categories: TopicCategory[] = ["Trending", "Latest", "Top"];
 
   useEffect(() => {
+    if (!categoryEffectMounted.current) {
+      categoryEffectMounted.current = true;
+      return;
+    }
     requestAnimationFrame(() => {
       mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
       lastScrollTop.current = 0;
     });
   }, [activeCategory]);
+
+  // Show toggle again when returning from detail to list
+  useEffect(() => {
+    if (!isDetailRoute) setShowToggle(true);
+  }, [isDetailRoute]);
 
   function handleCategoryChange(cat: TopicCategory) {
     isChangingCategory.current = true;
@@ -331,10 +343,10 @@ export default function Topics() {
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`relative z-10 flex-1 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
+            className={`relative z-10 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
               mobile
-                ? `px-5 py-1.5 text-xs ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
-                : `px-6 py-2 text-sm ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+                ? `w-20 py-1.5 text-xs ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
+                : `w-24 py-2 text-sm ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
             }`}
           >
             {cat}
@@ -346,9 +358,11 @@ export default function Topics() {
 
   return (
     <>
-      {categoryToggle(true)}
-
-      <div ref={mobileScrollRef} className="md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory">
+      <div
+        ref={mobileScrollRef}
+        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory${isDetailRoute ? " invisible pointer-events-none" : ""}`}
+        aria-hidden={isDetailRoute || undefined}
+      >
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
@@ -358,31 +372,35 @@ export default function Topics() {
             ))}
       </div>
 
-      <div className="hidden md:flex flex-col gap-8 w-full">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-display font-bold">Topics</h1>
+      {!isDetailRoute && categoryToggle(true)}
+
+      {!isDetailRoute && (
+        <div className="hidden md:flex flex-col gap-8 w-full">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-3xl font-display font-bold">Topics</h1>
+          </div>
+
+          {categoryToggle(false)}
+
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 h-52 animate-shimmer" />
+              ))}
+            </div>
+          ) : markets.length === 0 ? (
+            <div className="w-full py-24 flex flex-col items-center justify-center text-white/30">
+              <p className="text-base">No topics found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {markets.map((market) => (
+                <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
+              ))}
+            </div>
+          )}
         </div>
-
-        {categoryToggle(false)}
-
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 h-52 animate-shimmer" />
-            ))}
-          </div>
-        ) : markets.length === 0 ? (
-          <div className="w-full py-24 flex flex-col items-center justify-center text-white/30">
-            <p className="text-base">No topics found.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {markets.map((market) => (
-              <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
-            ))}
-          </div>
-        )}
-      </div>
+      )}
     </>
   );
 }
