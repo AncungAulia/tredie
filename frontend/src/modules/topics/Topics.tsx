@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Crown } from "lucide-react";
 
 function MiniLineChart({
   data,
@@ -309,20 +309,23 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
               {main.display_name ?? main.identifier}
             </h2>
             <div className="flex items-center gap-3 mt-3 flex-wrap">
-              <span className="inline-flex items-center px-3 py-1.5 bg-[#00FF47] text-black text-xs font-bold rounded-lg">
-                Trade {main.identifier}
-              </span>
               {category === "Trending" && (
-                <>
-                  <span className="text-xs font-mono text-white/60">{mainMindshare}% trend</span>
-                  <span className="text-xs font-mono text-[rgba(156,147,232,0.9)]">{mainRatchet}x</span>
-                </>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                  <Crown size={10} fill="white" className="text-white" />
+                  Most talked on socials
+                </span>
               )}
               {category === "Latest" && (
-                <span className="text-xs font-mono text-white/60">Created {timeAgo(main.created_at)}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                  <Crown size={10} fill="white" className="text-white" />
+                  Just launched · {timeAgo(main.created_at)}
+                </span>
               )}
               {category === "Top" && (
-                <span className="text-xs font-mono text-white/60">Mcap {mainMcap}</span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                  <Crown size={10} fill="white" className="text-white" />
+                  Largest market cap · {mainMcap}
+                </span>
               )}
             </div>
           </div>
@@ -331,12 +334,7 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
 
       {/* Right — 2 stacked full-bleed cards */}
       <div className="flex flex-col gap-3 h-full">
-        {secondary.map((market) => {
-          const rawSparkline = market.price_sparkline_24h ?? [];
-          const delta = rawSparkline.length >= 2 && rawSparkline[0] !== 0
-            ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
-            : 0;
-          return (
+        {secondary.map((market, idx) => (
             <Link key={market.identifier} href={`/topics/${encodeURIComponent(market.identifier)}`} className="flex-1 min-h-0">
               <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
                 {market.image_url && (
@@ -352,14 +350,13 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
                   <h3 className="text-white font-semibold text-sm leading-snug line-clamp-2 flex-1 min-w-0 drop-shadow">
                     {market.display_name ?? market.identifier}
                   </h3>
-                  <span className={`text-sm font-mono font-bold shrink-0 ${delta >= 0 ? "text-[#4ade80]" : "text-[#f87171]"}`}>
-                    {delta >= 0 ? "▲" : "▼"}{Math.abs(delta).toFixed(1)}%
+                  <span className="text-sm font-mono font-bold shrink-0 text-white/40">
+                    #{idx + 2}
                   </span>
                 </div>
               </div>
             </Link>
-          );
-        })}
+        ))}
       </div>
       </div>
     </div>
