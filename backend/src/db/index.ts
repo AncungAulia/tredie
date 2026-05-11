@@ -161,6 +161,49 @@ export async function getMarketByPda(pda: string) {
   return row;
 }
 
+/**
+ * Case-insensitive exact match on trimmed display_name.
+ * Used to detect semantic duplicates before spawning (e.g. "Coinbase Outage"
+ * appearing twice from different Elfa narratives with different identifiers).
+ */
+export async function findMarketByDisplayName(
+  displayName: string,
+): Promise<MarketRow | null> {
+  if (!displayName.trim()) return null;
+  const [row] = await sql<MarketRow[]>`
+    SELECT * FROM markets
+    WHERE LOWER(TRIM(display_name)) = LOWER(TRIM(${displayName}))
+    LIMIT 1
+  `;
+  return row ?? null;
+}
+
+/** Overwrite the image URL for a market. Used by backfill jobs. */
+export async function updateMarketImage(
+  pda: string,
+  imageUrl: string,
+): Promise<void> {
+  await sql`
+    UPDATE markets SET image_url = ${imageUrl} WHERE pda = ${pda}
+  `;
+}
+
+/** Return all markets whose image_url is NULL, optionally filtered by asset_class. */
+export async function getMarketsWithNullImage(
+  assetClass?: number,
+): Promise<MarketRow[]> {
+  if (assetClass !== undefined) {
+    return sql<MarketRow[]>`
+      SELECT * FROM markets
+      WHERE image_url IS NULL AND asset_class = ${assetClass}
+      ORDER BY created_at DESC
+    `;
+  }
+  return sql<MarketRow[]>`
+    SELECT * FROM markets WHERE image_url IS NULL ORDER BY created_at DESC
+  `;
+}
+
 export async function getAllActiveMarkets(): Promise<MarketRow[]> {
   return sql<MarketRow[]>`
     SELECT * FROM markets ORDER BY current_mindshare_bps DESC

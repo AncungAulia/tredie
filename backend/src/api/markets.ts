@@ -25,18 +25,64 @@ async function fetchSolPriceUsd(): Promise<number> {
   if (_solPriceCache && Date.now() - _solPriceCache.ts < 5 * 60 * 1000) {
     return _solPriceCache.price;
   }
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
-      { signal: AbortSignal.timeout(4000) },
-    );
-    const data = (await res.json()) as { solana: { usd: number } };
-    const price = data?.solana?.usd ?? 0;
-    if (price > 0) _solPriceCache = { price, ts: Date.now() };
-    return price;
-  } catch {
-    return _solPriceCache?.price ?? 0;
+
+  // Try sources in order; first success wins.
+  const sources: Array<() => Promise<number>> = [
+    // CryptoCompare — no auth, reliable from server environments including Railway
+    async () => {
+      const res = await fetch(
+        "https://min-api.cryptocompare.com/data/price?fsym=SOL&tsyms=USD",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { USD: number };
+      return d.USD ?? 0;
+    },
+    // Binance — no auth, high rate limits
+    async () => {
+      const res = await fetch(
+        "https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { price: string };
+      return parseFloat(d.price);
+    },
+    // Bybit — no auth
+    async () => {
+      const res = await fetch(
+        "https://api.bybit.com/v5/market/tickers?category=spot&symbol=SOLUSDT",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { result: { list: Array<{ lastPrice: string }> } };
+      return parseFloat(d.result?.list?.[0]?.lastPrice ?? "0");
+    },
+    // CoinGecko — last resort (rate-limited from shared IPs)
+    async () => {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { solana: { usd: number } };
+      return d?.solana?.usd ?? 0;
+    },
+  ];
+
+  for (const source of sources) {
+    try {
+      const price = await source();
+      if (price > 0) {
+        _solPriceCache = { price, ts: Date.now() };
+        return price;
+      }
+    } catch {
+      // try next source
+    }
   }
+
+  return _solPriceCache?.price ?? 0;
 }
 
 const jsonSafe = (v: unknown): unknown =>

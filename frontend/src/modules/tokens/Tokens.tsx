@@ -8,6 +8,31 @@ import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import CardChart from "@/components/chart/CardChart";
 
+function TokenAvatar({ market, size = "sm" }: { market: Market; size?: "sm" | "md" }) {
+  const [imgError, setImgError] = useState(false);
+  const ticker = market.identifier.includes(":")
+    ? market.identifier.split(":")[1]
+    : market.identifier;
+  const sizeClass = size === "md" ? "w-12 h-12 text-base" : "w-10 h-10 text-sm";
+
+  if (market.image_url && !imgError) {
+    return (
+      <img
+        src={market.image_url}
+        alt={market.display_name ?? ticker}
+        className={`${sizeClass} rounded-full object-cover shrink-0`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClass} rounded-full shrink-0 bg-white flex items-center justify-center font-mono font-bold text-[#9C93E8]`}>
+      {ticker.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
 // SVG sparkline — kept for desktop grid cards (small h-12 area where full chart is overkill)
 function MiniLineChart({ data, color = "#9C93E8" }: { data: number[]; color?: string }) {
   const max = Math.max(...data);
@@ -112,14 +137,9 @@ function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
         {/* Market info */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            {market.image_url && (
-              <img
-                src={market.image_url}
-                alt={market.display_name ?? market.identifier}
-                className="w-12 h-12 rounded-full object-cover shrink-0 bg-white/10 mt-0.5"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
-              />
-            )}
+            <div className="mt-0.5 shrink-0">
+              <TokenAvatar market={market} size="md" />
+            </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold text-white leading-tight truncate">
                 {market.display_name ?? market.identifier}
@@ -342,14 +362,7 @@ export default function Tokens() {
                   <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
                     <div className="flex justify-between items-start gap-4">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
-                        {market.image_url && (
-                          <img
-                            src={market.image_url}
-                            alt={market.display_name ?? market.identifier}
-                            className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/10"
-                            onError={(e) => { e.currentTarget.style.display = "none"; }}
-                          />
-                        )}
+                        <TokenAvatar market={market} size="sm" />
                         <div className="flex-1 min-w-0">
                           <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
                             {market.display_name ?? market.identifier}

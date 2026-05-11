@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Drawer } from "vaul";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,8 +12,13 @@ import { useMarketRealtime } from "@/hooks/useMarketRealtime";
 import { useOHLC } from "@/hooks/useOHLC";
 import { ArrowLeft, Copy, Info } from "lucide-react";
 import Link from "next/link";
-import TradingViewChart from "@/components/chart/TradingViewChart";
+import dynamic from "next/dynamic";
 import type { OHLCInterval } from "@/types/api";
+
+const TradingViewChart = dynamic(
+  () => import("@/components/chart/TradingViewChart"),
+  { ssr: false, loading: () => <div className="w-full h-full animate-shimmer bg-white/[0.03]" /> }
+);
 
 type TimeRange = "24H" | "1W" | "1M" | "ALL";
 
@@ -98,6 +103,7 @@ export default function TokenDetail({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const queryClient = useQueryClient();
   const { execute, status, error, reset } = useTradeAction();
   const { authenticated } = usePrivy();
@@ -166,6 +172,8 @@ export default function TokenDetail({ id }: { id: string }) {
   // spotPrice = lamports/raw_token / 1e9 = SOL per raw token
   // SOL per human token = SOL per raw token × 1e6  (1 token = 1e6 raw)
   const pricePerToken = spotPrice * 1e6;
+  const pricePerTokenRef = useRef(pricePerToken);
+  pricePerTokenRef.current = pricePerToken;
 
   const lineData = useMemo(() => {
     const candles = ohlcData?.candles ?? [];
@@ -192,7 +200,7 @@ export default function TokenDetail({ id }: { id: string }) {
         : Math.floor(windowStart / step) * step;
 
     const result: { time: number; value: number }[] = [];
-    let lastPrice = pricePerToken;
+    let lastPrice = pricePerTokenRef.current;
     let ci = 0;
 
     for (let t = from; t <= now; t += step) {
@@ -229,7 +237,7 @@ export default function TokenDetail({ id }: { id: string }) {
     }
 
     return out;
-  }, [ohlcData, pricePerToken, timeRange]);
+  }, [ohlcData, timeRange]);
 
   const mindshare = market ? market.current_mindshare_bps / 100 : 0;
   const ratchet = market ? market.ratchet_multiplier_bps / 10_000 : 0;
@@ -306,11 +314,26 @@ export default function TokenDetail({ id }: { id: string }) {
           <ArrowLeft size={18} />
           <span className="text-sm">Back</span>
         </Link>
-        <span className="text-white font-semibold text-lg line-clamp-2 flex-1 leading-snug">{label}</span>
+        <div className="flex items-center gap-2.5 w-full min-w-0">
+          {market.image_url && !imgError ? (
+            <img
+              src={market.image_url}
+              alt={label}
+              className="w-8 h-8 rounded-full object-cover shrink-0"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-mono font-bold text-[#9C93E8] text-xs shrink-0">
+              {ticker.slice(0, 1).toUpperCase()}
+            </div>
+          )}
+          <span className="text-white font-semibold text-lg line-clamp-2 flex-1 leading-snug min-w-0">{label}</span>
+        </div>
       </div>
 
       {/* Header */}
       <div className="mb-6 sm:mb-8">
+        {/* Desktop: back button */}
         <Link
           href="/topics"
           className="hidden md:inline-flex items-center gap-1.5 text-white/40 hover:text-white/70 transition-colors text-sm mb-4"
@@ -319,41 +342,77 @@ export default function TokenDetail({ id }: { id: string }) {
           Back
         </Link>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="hidden md:block text-lg sm:text-2xl font-bold text-white font-sans leading-tight line-clamp-2 sm:truncate">
-              {label}
-            </h1>
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-2 text-white/40 text-xs">
+        {/* Desktop: noise.xyz hero */}
+        <div className="hidden md:block relative w-full rounded-xl overflow-hidden mb-5" style={{ height: 264 }}>
+          {market.image_url && !imgError ? (
+            <img
+              src={market.image_url}
+              alt={label}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ background: "#141420" }}>
+              <span className="font-mono font-bold text-[#9C93E8]" style={{ fontSize: 84 }}>
+                {ticker.slice(0, 1).toUpperCase()}
+              </span>
+            </div>
+          )}
+          {/* Gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+          {/* Text overlay at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 px-6 pb-5">
+            <h1 className="text-2xl font-bold text-white leading-tight">{label}</h1>
+            <div className="flex items-center gap-2.5 mt-1.5 flex-wrap">
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1 hover:text-white/70 transition-colors"
+                className="flex items-center gap-1 text-white/45 hover:text-white/75 transition-colors font-mono text-xs"
               >
                 {identifier}
                 <Copy size={10} />
               </button>
-              {copied && (
-                <span className="text-[#9C93E8] text-[10px]">Copied!</span>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-6 shrink-0 lg:w-[220px]">
-            <div className="flex flex-col">
-              <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
-                {formatVolume(market.stats.volume_24h_lamports)} SOL
-              </span>
-              <span className="text-white/30 text-[11px] mt-0.5">24h vol</span>
-            </div>
-            <div className="flex flex-col">
+              {copied && <span className="text-[#9C93E8] text-xs">Copied!</span>}
+              <span className="text-white/20">·</span>
               <span
-                className="font-mono font-bold text-base leading-snug whitespace-nowrap"
+                className="font-mono text-sm font-semibold"
                 style={{ color: isPositive ? "#00FF47" : "#EF4444" }}
               >
                 {isPositive ? "+" : ""}{(priceDeltaBps / 100).toFixed(2)}%
               </span>
-              <span className="text-white/30 text-[11px] mt-0.5">24h change</span>
+              <span className="text-white/20">·</span>
+              <span className="font-mono text-sm text-white/50">
+                {formatVolume(market.stats.volume_24h_lamports)} SOL vol
+              </span>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile: compact stats row */}
+        <div className="flex md:hidden items-center gap-5 px-1 mb-2">
+          <div className="flex flex-col">
+            <span className="text-white font-mono font-bold text-base leading-snug whitespace-nowrap">
+              {formatVolume(market.stats.volume_24h_lamports)} SOL
+            </span>
+            <span className="text-white/30 text-[11px] mt-0.5">24h vol</span>
+          </div>
+          <div className="flex flex-col">
+            <span
+              className="font-mono font-bold text-base leading-snug whitespace-nowrap"
+              style={{ color: isPositive ? "#00FF47" : "#EF4444" }}
+            >
+              {isPositive ? "+" : ""}{(priceDeltaBps / 100).toFixed(2)}%
+            </span>
+            <span className="text-white/30 text-[11px] mt-0.5">24h change</span>
+          </div>
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 text-white/35 hover:text-white/70 transition-colors font-mono text-[11px]"
+            >
+              {identifier.length > 12 ? `${identifier.slice(0, 6)}…${identifier.slice(-4)}` : identifier}
+              <Copy size={9} />
+            </button>
+            {copied && <span className="text-[#9C93E8] text-[10px]">Copied!</span>}
           </div>
         </div>
       </div>

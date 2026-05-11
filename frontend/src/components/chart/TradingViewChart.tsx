@@ -104,6 +104,14 @@ export default function TradingViewChart({
   const [dotPos, setDotPos] = useState<{ x: number; y: number } | null>(null);
   const [hoverDot, setHoverDot] = useState<{ x: number; y: number } | null>(null);
 
+  // Refs so tooltip formatting always reads latest values without adding them
+  // to the effect dep array (which would destroy + remount the chart on every
+  // SOL price tick or market data poll, breaking hover state).
+  const virtualSupplyRef = useRef(virtualSupply);
+  virtualSupplyRef.current = virtualSupply;
+  const solPriceUsdRef = useRef(solPriceUsd);
+  solPriceUsdRef.current = solPriceUsd;
+
   const animFrameRef = useRef<number | null>(null);
   // Tracks the last X where the cursor was on the chart (even at edges where hoverDot is null)
   const lastHoverXRef = useRef<number | null>(null);
@@ -325,8 +333,8 @@ export default function TradingViewChart({
 
       if ("value" in raw) {
         const price =
-          virtualSupply != null
-            ? fmtMcap(raw.value, virtualSupply, solPriceUsd ?? 0)
+          virtualSupplyRef.current != null
+            ? fmtMcap(raw.value, virtualSupplyRef.current, solPriceUsdRef.current ?? 0)
             : `${fmt(raw.value)} SOL`;
         setTooltip({
           time: formatTooltipTime(param.time as number),
@@ -372,6 +380,11 @@ export default function TradingViewChart({
       });
     });
     ro.observe(el);
+    // If cursor was already inside the chart when this effect re-ran (e.g. after
+    // lineData update), recover hover state so crosshair events aren't dropped.
+    if (outerRef.current?.matches?.(':hover')) {
+      isPointerOverRef.current = true;
+    }
 
     return () => {
       ro.disconnect();
@@ -388,7 +401,7 @@ export default function TradingViewChart({
       setBrightPts([]);
       setClipX(null);
     };
-  }, [lineData, candleData, chartType, color, virtualSupply, solPriceUsd]);
+  }, [lineData, candleData, chartType, color]);
 
   // Prevent page scroll while the user scrubs the chart with a finger
   useEffect(() => {

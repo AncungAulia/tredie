@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets as useSolanaWallets } from "@privy-io/react-auth/solana";
 import { usePortfolio } from "@/hooks/usePortfolio";
@@ -63,8 +64,9 @@ export default function Portfolio() {
           {isLoading ? (
             <div className="h-10 w-32 bg-white/10 rounded animate-shimmer" />
           ) : (
-            <h2 className="text-4xl font-sans font-bold">
+            <h2 className="text-4xl font-sans font-bold flex items-baseline gap-2">
               {formatSol(stats?.total_held_value_lamports ?? 0)}
+              <span className="text-base font-mono text-white/30">SOL</span>
             </h2>
           )}
         </div>
@@ -74,26 +76,26 @@ export default function Portfolio() {
             {
               label: "Realized PnL",
               value: isLoading ? "—" : `${formatSol(stats?.realized_pnl_lamports ?? 0)}`,
+              unit: "SOL",
               colored: !isLoading && stats ? stats.realized_pnl_lamports : null,
             },
             {
               label: "Volume",
               value: isLoading ? "—" : `${formatSol(stats?.total_volume_lamports ?? 0)}`,
+              unit: "SOL",
             },
             {
               label: "Avg Profit/Trade",
               value: isLoading ? "—" : `${(lamportsToSol(stats?.avg_profit_per_trade_lamports ?? 0)).toFixed(4)}`,
+              unit: "SOL",
             },
             { label: "Trades", value: isLoading ? "—" : String(stats?.total_trades ?? 0) },
-            {
-              label: "Win Rate",
-              value: isLoading ? "—" : `${((stats?.win_rate_bps ?? 0) / 100).toFixed(1)}%`,
-            },
-          ].map(({ label, value, colored }) => (
+          ].map(({ label, value, unit, colored }) => (
             <div key={label} className="flex flex-col gap-1.5">
               <span className="text-white/40 text-xs">{label}</span>
               <span className={`font-mono text-sm ${colored !== null && colored !== undefined ? pnlColor(colored) : ""}`}>
                 {value}
+                {unit && value !== "—" && <span className="text-white/30 text-xs ml-1">{unit}</span>}
               </span>
             </div>
           ))}
@@ -147,9 +149,10 @@ export default function Portfolio() {
             ) : (
               <div className="flex flex-col gap-2">
                 {positions.map((pos) => (
-                  <div
+                  <Link
                     key={pos.market_pda}
-                    className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4"
+                    href={`/tokens/${encodeURIComponent(pos.identifier)}`}
+                    className="block bg-white/[0.03] border border-white/[0.06] rounded-xl px-5 py-4 hover:bg-white/[0.06] hover:border-white/[0.12] transition-colors cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex flex-col gap-0.5">
@@ -161,7 +164,7 @@ export default function Portfolio() {
                       <div className="flex items-center gap-4 sm:gap-8 text-right flex-shrink-0">
                         <div className="flex flex-col gap-0.5">
                           <span className="text-white/30 text-[11px]">Held value</span>
-                          <span className="font-mono text-sm">{formatSol(pos.held_value_lamports)}</span>
+                          <span className="font-mono text-sm">{formatSol(pos.held_value_lamports)} <span className="text-white/30 text-[10px]">SOL</span></span>
                         </div>
                         <div className="hidden sm:flex flex-col gap-0.5">
                           <span className="text-white/30 text-[11px]">Unrealized PnL</span>
@@ -191,7 +194,7 @@ export default function Portfolio() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
