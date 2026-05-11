@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Drawer } from "vaul";
 import Image from "next/image";
+import ScaleLoader from "react-spinners/ScaleLoader";
 
 const CODE_LENGTH = 9;
 const LS_KEY = "tredie_ac";
@@ -238,8 +239,8 @@ export default function AccessGate({
 
       {/* Spinner while verifying stored token */}
       {granted === null && (
-        <div className="fixed inset-0 z-[210] flex items-center justify-center">
-          <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-[#9C93E8] animate-spin" />
+        <div className="fixed inset-0 z-[210] flex items-center justify-center bg-[#09090B]/80 backdrop-blur-sm">
+          <ScaleLoader color="#9C93E8" height={24} width={3} margin={2} />
         </div>
       )}
 

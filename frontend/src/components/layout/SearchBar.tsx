@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { resolveLink } from "@/lib/api/search";
+import { toast } from "sonner";
 
 const URL_PATTERN = /^https?:\/\//i;
 const PLACEHOLDERS = ["Search ticker", "Search contract", "Paste a link"];
@@ -55,7 +56,17 @@ export default function SearchBar() {
           router.push(res.suggested_market_path);
           setQuery("");
           setOpen(false);
+        } else {
+          toast.error("Could not resolve link", {
+            description: "No market found for this URL.",
+            duration: 3000,
+          });
         }
+      } catch {
+        toast.error("Could not resolve link", {
+          description: "Check your connection and try again.",
+          duration: 3000,
+        });
       } finally {
         setResolving(false);
       }
@@ -78,7 +89,7 @@ export default function SearchBar() {
   }
 
   return (
-    <div className="relative w-full max-w-lg" ref={wrapperRef}>
+    <div className="relative w-full max-w-2xl" ref={wrapperRef}>
       <form onSubmit={handleSubmit}>
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <Search className="h-4 w-4 text-white/40" />

@@ -190,12 +190,10 @@ export interface SearchResult {
 }
 
 export interface ResolveLinkResponse {
-  identifier: string | null;
-  display_name: string | null;
-  asset_class: AssetClass | null;
-  market_pda: string | null;
+  metadata: Record<string, unknown>;
+  extracted_symbol: string | null;
+  confidence: number;
   suggested_market_path: string | null;
-  source_url: string;
 }
 
 export interface TrendingToken {

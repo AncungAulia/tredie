@@ -6,9 +6,14 @@ import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Crown } from "lucide-react";
 import dynamic from "next/dynamic";
-const CardChart = dynamic(() => import("@/components/chart/CardChart"), { ssr: false });
+const CardChart = dynamic(() => import("@/components/chart/CardChart"), {
+  ssr: false,
+});
 
-function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number): string {
+function formatMcapUsd(
+  fdvLamports: string | undefined,
+  solPriceUsd: number,
+): string {
   if (!fdvLamports || solPriceUsd === 0) return "—";
   const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
   if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
@@ -24,12 +29,20 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
-function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
+function TopicCard({
+  market,
+  solPriceUsd,
+}: {
+  market: Market;
+  solPriceUsd: number;
+}) {
   const mindshare = market.current_mindshare_bps / 100;
-  const rawSparkline = (market.price_sparkline_24h ?? []);
+  const rawSparkline = market.price_sparkline_24h ?? [];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
-      ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
+      ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) /
+          rawSparkline[0]) *
+        100
       : 0;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
   const color = sparklineDelta >= 0 ? "#9C93E8" : "#EF4444";
@@ -44,7 +57,9 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
                 src={market.image_url}
                 alt={market.display_name ?? market.identifier}
                 className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/10"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             )}
             <div className="flex-1 min-w-0">
@@ -77,12 +92,21 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
         </div>
 
         <div className="flex items-baseline gap-2">
-          <span className="text-white text-2xl font-mono font-bold">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
-          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
+          <span className="text-white text-2xl font-mono font-bold">
+            {formatMcapUsd(market.fdv_lamports, solPriceUsd)}
+          </span>
+          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">
+            Mcap
+          </span>
         </div>
 
         {/* Desktop card chart — OHLC data, same pipeline as token detail 24H */}
-        <CardChart identifier={market.identifier} market={market} color={color} heightClass="h-12" />
+        <CardChart
+          identifier={market.identifier}
+          market={market}
+          color={color}
+          heightClass="h-12"
+        />
 
         <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
           <div className="flex items-center gap-2">
@@ -102,12 +126,20 @@ function TopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: numbe
   );
 }
 
-function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
+function MobileTopicCard({
+  market,
+  solPriceUsd,
+}: {
+  market: Market;
+  solPriceUsd: number;
+}) {
   const mindshare = market.current_mindshare_bps / 100;
-  const rawSparkline = (market.price_sparkline_24h ?? []);
+  const rawSparkline = market.price_sparkline_24h ?? [];
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
-      ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
+      ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) /
+          rawSparkline[0]) *
+        100
       : 0;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
   const color = sparklineDelta >= 0 ? "#9C93E8" : "#EF4444";
@@ -128,39 +160,63 @@ function MobileTopicCard({ market, solPriceUsd }: { market: Market; solPriceUsd:
                 src={market.image_url}
                 alt={market.display_name ?? market.identifier}
                 className="w-12 h-12 rounded-full object-cover shrink-0 bg-white/10 mt-0.5"
-                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             )}
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold text-white leading-tight truncate">
                 {market.display_name ?? market.identifier}
               </h2>
-              <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+              <p className="text-white/30 text-xs font-mono mt-1">
+                {market.identifier}
+              </p>
             </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
-            <span className="text-[10px] text-white/30 uppercase tracking-wider">Topics</span>
-            <span className="text-2xl font-mono font-bold">{mindshare.toFixed(1)}%</span>
-            <span className={`text-xs flex items-center gap-1 mt-0.5 ${sparklineDelta >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"}`}>
-              {sparklineDelta >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            <span className="text-[10px] text-white/30 uppercase tracking-wider">
+              Topics
+            </span>
+            <span className="text-2xl font-mono font-bold">
+              {mindshare.toFixed(1)}%
+            </span>
+            <span
+              className={`text-xs flex items-center gap-1 mt-0.5 ${sparklineDelta >= 0 ? "text-[#22C55E]" : "text-[#EF4444]"}`}
+            >
+              {sparklineDelta >= 0 ? (
+                <TrendingUp size={11} />
+              ) : (
+                <TrendingDown size={11} />
+              )}
               {Math.abs(sparklineDelta).toFixed(1)}%
             </span>
           </div>
         </div>
 
         <div className="flex items-baseline gap-2 mt-3">
-          <span className="text-3xl font-mono font-bold text-white">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
-          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
+          <span className="text-3xl font-mono font-bold text-white">
+            {formatMcapUsd(market.fdv_lamports, solPriceUsd)}
+          </span>
+          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">
+            Mcap
+          </span>
         </div>
 
         {/* Full-height chart — OHLC data, identical pipeline to token detail 24H */}
         <div className="flex-1 min-h-0 mt-4 rounded-xl overflow-hidden">
-          <CardChart identifier={market.identifier} market={market} color={color} />
+          <CardChart
+            identifier={market.identifier}
+            market={market}
+            color={color}
+          />
         </div>
 
         <div className="flex items-center justify-between border-t border-white/[0.06] pt-4 mt-4">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-white/30 uppercase tracking-wider">Vol</span>
+            <span className="text-[11px] text-white/30 uppercase tracking-wider">
+              Vol
+            </span>
             <span className="text-sm font-mono text-white/70">
               {formatVolume(market.volume_24h_lamports)} SOL
             </span>
@@ -205,7 +261,15 @@ const HERO_TITLES: Record<TopicCategory, string> = {
   Top: "Top Markets by Cap",
 };
 
-function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; solPriceUsd: number; category: TopicCategory }) {
+function HeroSection({
+  markets,
+  solPriceUsd,
+  category,
+}: {
+  markets: Market[];
+  solPriceUsd: number;
+  category: TopicCategory;
+}) {
   const main = markets[0];
   const secondary = markets.slice(1, 3);
   if (!main) return null;
@@ -218,57 +282,68 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
     <div className="hidden md:flex flex-col gap-4">
       <h2 className="text-2xl font-bold text-white">{HERO_TITLES[category]}</h2>
       <div className="grid grid-cols-[1fr_280px] gap-3 h-[380px]">
-      {/* Left — full-bleed image, text overlay */}
-      <Link href={`/topics/${encodeURIComponent(main.identifier)}`} className="h-full">
-        <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
-          {main.image_url && (
-            <img
-              src={main.image_url}
-              alt={main.display_name ?? main.identifier}
-              className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-              onError={(e) => { e.currentTarget.style.display = "none"; }}
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-5">
-            <h2 className="text-white font-bold text-xl leading-snug line-clamp-2 drop-shadow">
-              {main.display_name ?? main.identifier}
-            </h2>
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
-              {category === "Trending" && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
-                  <Crown size={10} fill="white" className="text-white" />
-                  Most talked on socials
-                </span>
-              )}
-              {category === "Latest" && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
-                  <Crown size={10} fill="white" className="text-white" />
-                  Just launched · {timeAgo(main.created_at)}
-                </span>
-              )}
-              {category === "Top" && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
-                  <Crown size={10} fill="white" className="text-white" />
-                  Largest market cap · {mainMcap}
-                </span>
-              )}
+        {/* Left — full-bleed image, text overlay */}
+        <Link
+          href={`/topics/${encodeURIComponent(main.identifier)}`}
+          className="h-full"
+        >
+          <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
+            {main.image_url && (
+              <img
+                src={main.image_url}
+                alt={main.display_name ?? main.identifier}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-5">
+              <h2 className="text-white font-bold text-xl leading-snug line-clamp-2 drop-shadow">
+                {main.display_name ?? main.identifier}
+              </h2>
+              <div className="flex items-center gap-3 mt-3 flex-wrap">
+                {category === "Trending" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                    <Crown size={10} fill="white" className="text-white" />
+                    Most talked on socials
+                  </span>
+                )}
+                {category === "Latest" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                    <Crown size={10} fill="white" className="text-white" />
+                    Just launched · {timeAgo(main.created_at)}
+                  </span>
+                )}
+                {category === "Top" && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm border border-white/15 text-white/80 text-xs font-mono rounded-full">
+                    <Crown size={10} fill="white" className="text-white" />
+                    Largest market cap · {mainMcap}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </Link>
+        </Link>
 
-      {/* Right — 2 stacked full-bleed cards */}
-      <div className="flex flex-col gap-3 h-full">
-        {secondary.map((market, idx) => (
-            <Link key={market.identifier} href={`/topics/${encodeURIComponent(market.identifier)}`} className="flex-1 min-h-0">
+        {/* Right — 2 stacked full-bleed cards */}
+        <div className="flex flex-col gap-3 h-full">
+          {secondary.map((market, idx) => (
+            <Link
+              key={market.identifier}
+              href={`/topics/${encodeURIComponent(market.identifier)}`}
+              className="flex-1 min-h-0"
+            >
               <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
                 {market.image_url && (
                   <img
                     src={market.image_url}
                     alt={market.display_name ?? market.identifier}
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
                   />
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
@@ -282,8 +357,8 @@ function HeroSection({ markets, solPriceUsd, category }: { markets: Market[]; so
                 </div>
               </div>
             </Link>
-        ))}
-      </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -294,7 +369,8 @@ type TopicCategory = "Trending" | "Latest" | "Top";
 export default function Topics() {
   const pathname = usePathname();
   const isDetailRoute = pathname.startsWith("/topics/");
-  const [activeCategory, setActiveCategory] = useState<TopicCategory>("Trending");
+  const [activeCategory, setActiveCategory] =
+    useState<TopicCategory>("Trending");
   const [showToggle, setShowToggle] = useState(true);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
@@ -339,16 +415,21 @@ export default function Topics() {
   const trendingMarkets = trendingData?.markets ?? [];
   const newestMarkets = newestData?.markets ?? [];
   const topMcapMarkets = topMcapData?.markets ?? [];
-  const solPriceUsd = (trendingData ?? newestData ?? topMcapData)?.solPriceUsd ?? 0;
+  const solPriceUsd =
+    (trendingData ?? newestData ?? topMcapData)?.solPriceUsd ?? 0;
 
   const isLoading =
-    activeCategory === "Trending" ? loadingTrending :
-    activeCategory === "Latest" ? loadingNewest :
-    loadingTopMcap;
+    activeCategory === "Trending"
+      ? loadingTrending
+      : activeCategory === "Latest"
+        ? loadingNewest
+        : loadingTopMcap;
   const markets =
-    activeCategory === "Trending" ? trendingMarkets :
-    activeCategory === "Latest" ? newestMarkets :
-    topMcapMarkets;
+    activeCategory === "Trending"
+      ? trendingMarkets
+      : activeCategory === "Latest"
+        ? newestMarkets
+        : topMcapMarkets;
 
   const categories: TopicCategory[] = ["Trending", "Latest", "Top"];
 
@@ -370,7 +451,9 @@ export default function Topics() {
 
   function handleCategoryChange(cat: TopicCategory) {
     isChangingCategory.current = true;
-    setTimeout(() => { isChangingCategory.current = false; }, 600);
+    setTimeout(() => {
+      isChangingCategory.current = false;
+    }, 600);
     setActiveCategory(cat);
     setShowToggle(true);
   }
@@ -378,29 +461,42 @@ export default function Topics() {
   const activeIdx = categories.indexOf(activeCategory);
 
   const categoryToggle = (mobile: boolean) => (
-    <div className={mobile
-      ? `md:hidden fixed top-[4.25rem] left-0 right-0 z-20 flex justify-center py-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
-      : "flex items-center"
-    }>
-      <div className={`relative flex p-1 rounded-full border ${mobile ? "bg-white/[0.08] backdrop-blur-md border-white/[0.08]" : "bg-white/[0.04] border-white/[0.07]"}`}>
-        <span
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
-          style={{
-            left: "0.25rem",
-            width: `calc((100% - 0.5rem) / ${categories.length})`,
-            transform: `translateX(${activeIdx * 100}%)`,
-          }}
-        />
-        {categories.map((cat) => (
+    <div
+      className={
+        mobile
+          ? `md:hidden fixed top-[4rem] left-0 right-0 z-20 flex justify-center pb-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
+          : "flex items-center"
+      }
+    >
+      <div
+        className={
+          mobile
+            ? "w-full mx-6 flex items-center"
+            : `relative flex p-1 rounded-full border bg-white/[0.04] border-white/[0.07]`
+        }
+      >
+        {/* Background pill only for desktop */}
+        {!mobile && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+            style={{
+              left: "0.25rem",
+              width: `calc((100% - 0.5rem) / ${categories.length})`,
+              transform: `translateX(${activeIdx * 100}%)`,
+            }}
+          />
+        )}
+
+        {categories.map((cat, idx) => (
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`relative z-10 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
+            className={
               mobile
-                ? `w-20 py-1.5 text-xs ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
-                : `w-24 py-2 text-sm ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
-            }`}
+                ? `flex-1 py-3 text-center text-xs tracking-normal transition-colors duration-300 cursor-pointer ${activeCategory === cat ? "text-[#9C93E8] font-bold" : "text-white/40 font-normal"}`
+                : `relative z-10 w-24 py-2 text-center text-sm font-medium transition-colors duration-300 rounded-full cursor-pointer ${activeCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+            }
           >
             {cat}
           </button>
@@ -418,10 +514,17 @@ export default function Topics() {
       >
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
+              <div
+                key={i}
+                className="h-dvh snap-start bg-white/[0.03] animate-shimmer"
+              />
             ))
           : markets.map((market) => (
-              <MobileTopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
+              <MobileTopicCard
+                key={market.identifier}
+                market={market}
+                solPriceUsd={solPriceUsd}
+              />
             ))}
       </div>
 
@@ -434,7 +537,10 @@ export default function Topics() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 h-52 animate-shimmer" />
+                <div
+                  key={i}
+                  className="bg-white/[0.03] border border-white/[0.07] rounded-2xl p-6 h-52 animate-shimmer"
+                />
               ))}
             </div>
           ) : markets.length === 0 ? (
@@ -443,11 +549,19 @@ export default function Topics() {
             </div>
           ) : (
             <>
-              <HeroSection markets={markets.slice(0, 3)} solPriceUsd={solPriceUsd} category={activeCategory} />
+              <HeroSection
+                markets={markets.slice(0, 3)}
+                solPriceUsd={solPriceUsd}
+                category={activeCategory}
+              />
               {markets.length > 3 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {markets.slice(3).map((market) => (
-                    <TopicCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
+                    <TopicCard
+                      key={market.identifier}
+                      market={market}
+                      solPriceUsd={solPriceUsd}
+                    />
                   ))}
                 </div>
               )}

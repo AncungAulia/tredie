@@ -2,7 +2,7 @@
 import { useId, useRef, useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useMarketStore, type TokenCategory } from "@/store/useMarketStore";
-import { useMarkets } from "@/hooks/useMarkets";
+import { useInfiniteMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
@@ -217,41 +217,43 @@ export default function Tokens() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  const { data: trendingData, isLoading: loadingTrending } = useMarkets({
-    type: "token",
-    sortBy: "mindshare",
-    limit: 50,
-    sparkline: true,
-  });
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const mobileSentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data: newestData, isLoading: loadingNewest } = useMarkets({
-    type: "token",
-    sortBy: "created_at",
-    order: "desc",
-    limit: 50,
-    sparkline: true,
-  });
+  const trending = useInfiniteMarkets({ type: "token", sortBy: "mindshare", sparkline: true });
+  const newest = useInfiniteMarkets({ type: "token", sortBy: "created_at", order: "desc", sparkline: true });
+  const topMcap = useInfiniteMarkets({ type: "token", sortBy: "market_cap", sparkline: true });
 
-  const { data: topMcapData, isLoading: loadingTopMcap } = useMarkets({
-    type: "token",
-    sortBy: "market_cap",
-    limit: 50,
-    sparkline: true,
-  });
+  const active = activeTokenCategory === "Trending" ? trending : activeTokenCategory === "Latest" ? newest : topMcap;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, data, isLoading } = active;
 
-  const trendingMarkets = trendingData?.markets ?? [];
-  const newestMarkets = newestData?.markets ?? [];
-  const topMcapMarkets = topMcapData?.markets ?? [];
-  const solPriceUsd = (trendingData ?? newestData ?? topMcapData)?.solPriceUsd ?? 0;
+  const filtered = data?.pages.flatMap((p) => p.markets) ?? [];
+  const solPriceUsd = data?.pages[0]?.solPriceUsd ?? 0;
 
-  const isLoading =
-    activeTokenCategory === "Trending" ? loadingTrending :
-    activeTokenCategory === "Latest" ? loadingNewest :
-    loadingTopMcap;
-  const filtered =
-    activeTokenCategory === "Trending" ? trendingMarkets :
-    activeTokenCategory === "Latest" ? newestMarkets :
-    topMcapMarkets;
+  // Desktop sentinel — scoped to viewport
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Mobile sentinel — scoped to snap scroll container
+  useEffect(() => {
+    const el = mobileSentinelRef.current;
+    const root = mobileScrollRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
+      { root, threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const categories: TokenCategory[] = ["Trending", "Latest", "Top"];
 
@@ -282,29 +284,34 @@ export default function Tokens() {
 
   const categoryToggle = (mobile: boolean) => (
     <div className={mobile
-      ? `md:hidden fixed top-[4.25rem] left-0 right-0 z-20 flex justify-center py-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
-      : "flex items-center"
+      ? `md:hidden fixed top-[4rem] left-0 right-0 z-20 flex justify-center pb-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
+      : "flex cursor-pointer items-center"
     }>
-      <div className={`relative flex p-1 rounded-full border ${mobile ? "bg-white/[0.08] backdrop-blur-md border-white/[0.08]" : "bg-white/[0.04] border-white/[0.07]"}`}>
-        {/* Sliding pill */}
-        <span
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
-          style={{
-            left: "0.25rem",
-            width: `calc((100% - 0.5rem) / ${categories.length})`,
-            transform: `translateX(${activeIdx * 100}%)`,
-          }}
-        />
+      <div className={mobile 
+        ? "w-full mx-6 flex items-center" 
+        : `relative flex p-1 rounded-full border bg-white/[0.04] border-white/[0.07]`
+      }>
+        {/* Background pill only for desktop */}
+        {!mobile && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 cursor-pointer bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+            style={{
+              left: "0.25rem",
+              width: `calc((100% - 0.5rem) / ${categories.length})`,
+              transform: `translateX(${activeIdx * 100}%)`,
+            }}
+          />
+        )}
+
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`relative z-10 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
-              mobile
-                ? `w-20 py-1.5 text-xs ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
-                : `w-24 py-2 text-sm ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
-            }`}
+            className={mobile
+              ? `flex-1 py-3 text-center text-xs font-bold tracking-wider transition-colors duration-300 cursor-pointer ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/40"}`
+              : `relative cursor-pointer z-10 w-24 py-2 text-center text-sm font-medium transition-colors duration-300 rounded-full ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+            }
           >
             {cat}
           </button>
@@ -328,6 +335,12 @@ export default function Tokens() {
           : filtered.map((market) => (
               <MobileTokenCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
             ))}
+        {/* Mobile sentinel — snap card di ujung, trigger fetch saat terlihat */}
+        {hasNextPage && (
+          <div ref={mobileSentinelRef} className="h-dvh snap-start flex items-center justify-center">
+            <span className="text-white/20 text-xs">Loading more…</span>
+          </div>
+        )}
       </div>
 
       {!isDetailRoute && categoryToggle(true)}
@@ -404,6 +417,13 @@ export default function Tokens() {
                 </Link>
               );
             })}
+          </div>
+        )}
+        {/* Sentinel + loading indicator for desktop */}
+        <div ref={sentinelRef} className="h-1" />
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-6">
+            <span className="text-white/20 text-xs">Loading more…</span>
           </div>
         )}
       </div>}

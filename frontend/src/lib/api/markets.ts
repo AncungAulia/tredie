@@ -9,6 +9,7 @@ export interface ListMarketsParams {
   type?: MarketType;
   assetClass?: number;
   limit?: number;
+  offset?: number;
   sortBy?: MarketSortBy;
   order?: SortOrder;
   sparkline?: boolean;
@@ -25,6 +26,7 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
   if (params.type) searchParams.type = params.type;
   if (params.assetClass !== undefined) searchParams.assetClass = String(params.assetClass);
   if (params.limit !== undefined) searchParams.limit = String(params.limit);
+  if (params.offset !== undefined) searchParams.offset = String(params.offset);
   if (params.sortBy) searchParams.sortBy = params.sortBy;
   if (params.order) searchParams.order = params.order;
   searchParams.sparkline = String(params.sparkline ?? true);
