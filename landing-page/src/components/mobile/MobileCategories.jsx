@@ -86,13 +86,7 @@ const MobileCategories = () => {
             {item.description}
           </p>
 
-          {/* CTA */}
-          <button className="flex items-center gap-4 text-base font-semibold group">
-            <span className={`text-2xl font-semibold ${item.textColor}`}>{item.cta}</span>
-            <div className="p-3 bg-white/20 rounded-md h-10 w-10">
-              <Image src='/assets/icons/icon-arrow.svg' alt='icon-arrow' className='h-full w-full' width={300} height={300} />
-            </div>
-          </button>
+
         </div>
       ))}
     </div>
