@@ -94,6 +94,8 @@ const Hero = () => {
             },
           },
         );
+      } else {
+        gsap.set(".hero-video", { scale: 1, rotateX: 0, rotateY: 0, clearProps: "transform" });
       }
 
       tl.to(videoRef.current, { opacity: 1 }, "-=0.5");
@@ -198,19 +200,15 @@ const Hero = () => {
       id="hero"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      className="w-screen h-[200vh] max-sm:h-screen bg-black relative"
+      className="w-screen h-[200vh] max-lg:h-screen bg-black relative"
     >
       <div className="fixed inset-0 bg-[#9C93E8] pointer-events-none h-full w-full ivention-overlay z-[99999]"></div>
 
-      <div className="h-screen w-full max-sm:w-screen sticky top-0 max-sm:left-0 overflow-hidden flex justify-center items-center">
+      <div className="h-screen w-full max-lg:w-screen sticky top-0 max-lg:left-0 overflow-hidden flex justify-center items-center">
         <div
           ref={videoRef}
-          className="h-[60vw] w-[102vw] max-sm:h-[55vw] max-sm:mx-auto max-sm:w-[90vw] opacity-0 hero-video relative z-40 rounded-[4.5vw] overflow-hidden shadow-2xl origin-center max-sm:rounded-[3.5vw]"
-          style={isMobile ? {} : {
-            transformStyle: "preserve-3d",
-            transform: `perspective(800px) rotateX(${baseRotateX}deg) rotateY(${baseRotateY}deg) scale(${1 / 3})`,
-            willChange: "transform",
-          }}
+          className="h-[60vw] w-[102vw] max-lg:h-[25vh] max-lg:mx-auto max-lg:w-[90vw] opacity-0 hero-video relative z-40 rounded-[4.5vw] overflow-hidden shadow-2xl origin-center max-lg:rounded-[3.5vw]"
+          style={{ transformStyle: "preserve-3d", willChange: "transform" }}
           onClick={isMobile ? toggleMute : undefined}
         >
           <video
@@ -223,7 +221,7 @@ const Hero = () => {
             className="w-full h-full object-cover"
           />
           {/* Mobile mute indicator */}
-          <div className="absolute inset-0 hidden max-sm:flex items-end justify-end p-3 pointer-events-none">
+          <div className="absolute inset-0 hidden max-lg:flex items-end justify-end p-3 pointer-events-none">
             <div className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
               {isMuted ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
@@ -241,18 +239,18 @@ const Hero = () => {
         <ClipPath clipRef={clipRef} />
 
         {/* TEXT LAYER */}
-        <div className="absolute inset-0 h-screen w-full flex items-center max-sm:flex-col max-sm:items-start max-sm:justify-between max-sm:pt-[22vw] max-sm:pb-[10vw] text-[#101417] justify-between z-20 px-[3vw] max-sm:px-[5vw]">
-          <p className="text-[2.5vw] max-sm:text-[10vw] max-sm:text-white font-third leading-[1.1] hero-text max-sm:text-left">
+        <div className="absolute inset-0 h-screen w-full flex items-center max-lg:flex-col max-lg:items-start max-lg:justify-between max-lg:pt-[22vw] max-lg:pb-[10vw] text-[#101417] justify-between z-20 px-[3vw] max-lg:px-[5vw]">
+          <p className="text-[2.5vw] max-lg:text-[10vw] max-lg:text-white font-third leading-[1.1] hero-text max-lg:text-left">
             Trade the World's <br /> Attention
           </p>
-          <p className="w-[23%] max-sm:w-full max-sm:text-[4vw] max-sm:leading-[1.5] max-sm:text-left max-sm:opacity-75 max-sm:mb-12 text-[1.3vw] leading-5.5 hero-text text-white">
+          <p className="w-[23%] max-lg:w-full max-lg:text-[4vw] max-lg:leading-[1.5] max-lg:text-left max-lg:opacity-75 max-lg:mb-12 text-[1.3vw] leading-5.5 hero-text text-white">
             Markets open automatically when something trends. The more the conversation grows, the higher the floor locks in.
           </p>
         </div>
 
         {/* CUSTOM CURSOR PLAY/PAUSE — visible when video is fullscreen */}
         <div
-          className="absolute inset-0 z-50 max-sm:hidden"
+          className="absolute inset-0 z-50 max-lg:hidden"
           style={{
             cursor: isFullyScaled ? "none" : "default",
             pointerEvents: isFullyScaled ? "auto" : "none",
@@ -265,7 +263,7 @@ const Hero = () => {
 
         <div
           ref={cursorRef}
-          className="fixed pointer-events-none z-[60] w-[4vw] h-[4vw] rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-[0.65vw] font-semibold font-display uppercase tracking-[0.2em] max-sm:hidden"
+          className="fixed pointer-events-none z-[60] w-[4vw] h-[4vw] rounded-full bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-[0.65vw] font-semibold font-display uppercase tracking-[0.2em] max-lg:hidden"
           style={{
             left: 0,
             top: 0,
@@ -288,7 +286,7 @@ const Hero = () => {
 
         {/* BOTTOM CONTROLS BAR — progress + mute side by side */}
         <div
-          className="absolute bottom-0 left-0 right-0 z-50 px-8 pb-8 flex flex-row items-center gap-4 max-sm:hidden pointer-events-none"
+          className="absolute bottom-0 left-0 right-0 z-50 px-8 pb-8 flex flex-row items-center gap-4 max-lg:hidden pointer-events-none"
           style={{ opacity: controlsOpacity }}
         >
           {/* Progress bar */}
@@ -325,20 +323,20 @@ const Hero = () => {
         </div>
 
         {/* SVG DECORATION */}
-        <div className="absolute bottom-5 max-sm:bottom-0 left-0 w-full h-[25%] max-sm:h-[15%] px-[2vw]">
+        <div className="absolute bottom-5 max-lg:bottom-0 left-0 w-full h-[25%] max-lg:h-[15%] px-[2vw]">
           <Image
             width={1000}
             height={1000}
             src="/assets/svg/home-hero.svg"
             alt="text-svg"
-            className="absolute bottom-5 max-sm:bottom-[-5vw] left-0 w-full h-full max-sm:px-4 object-contain mix-blend-color-burn opacity-90 z-10"
+            className="absolute bottom-5 max-lg:bottom-[-5vw] left-0 w-full h-full max-lg:px-4 object-contain mix-blend-color-burn opacity-90 z-10"
           />
           <Image
             width={1000}
             height={1000}
             src="/assets/svg/home-hero.svg"
             alt="text-svg"
-            className="absolute bottom-5 max-sm:bottom-[-5vw] left-0 w-full h-full max-sm:px-4 object-contain mix-blend-color-burn opacity-90 z-10"
+            className="absolute bottom-5 max-lg:bottom-[-5vw] left-0 w-full h-full max-lg:px-4 object-contain mix-blend-color-burn opacity-90 z-10"
           />
         </div>
 
