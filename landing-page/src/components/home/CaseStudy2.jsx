@@ -11,27 +11,27 @@ const CaseStudy2 = () => {
   const slides = [
     {
       ticker: 'BTC',
-      assetClass: 'Crypto Token',
-      marketType: 'Viral Moment',
+      assetClass: 'Crypto',
+      marketType: 'Social Spike',
       network: 'Solana',
-      quote: `"BTC was everywhere on social media. I saw it trending on X all morning. Opened Tredie, bought in early. By the afternoon the price had tripled."`,
-      image: "/assets/img/party-2.jpeg",
+      quote: `"BTC was all over my feed that morning before the charts moved. Felt like something was happening before it happened. Got in while it was still quiet."`,
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778527448/Topics_trend_every_day_o8mytv.png",
     },
     {
       ticker: 'HANTA',
-      assetClass: 'Trending Topic',
-      marketType: 'Viral Moment',
+      assetClass: 'Topic',
+      marketType: 'News Cycle',
       network: 'Solana',
-      quote: `"Hantavirus was everywhere on X and the news. I had no idea what it was, but everyone was talking about it. Opened Tredie, bought in. By evening the price had already moved."`,
-      image: "/assets/img/party-1.jpeg",
+      quote: `"I had no idea what hantavirus actually was. It was just the top trending topic on X for three hours straight. That felt like a signal. Opened a position. It was."`,
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778499766/hantavirus1_aivmoq.avif",
     },
     {
       ticker: 'AAPL',
-      assetClass: 'Attention Market',
-      marketType: 'Trending Event',
+      assetClass: 'Equity',
+      marketType: 'Live Event',
       network: 'Solana',
-      quote: `"Apple's keynote was everywhere. I watched it live, opened Tredie the moment attention peaked, and got in. Price moved fast. No waiting, no guesswork."`,
-      image: "/assets/img/party-2.jpeg",
+      quote: `"I was watching the Apple keynote and opened Tredie before it was over. The attention was obvious. The price agreed."`,
+      image: "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778529755/Apple_keynote_kwxgrp.jpg",
     },
   ]
 
@@ -202,19 +202,17 @@ const CaseStudy2 = () => {
           </div>
 
           {/* MAIN SLIDE CONTENT */}
-          <div key={`quote-${current}`} className='flex justify-between items-center h-full'>
-            <div className='w-[35%] slider-content text-[2.5vw] leading-[1.1] font-display'>
+          <div key={`quote-${current}`} className='flex flex-1 items-stretch gap-[3vw]'>
+            <div className='w-[42%] flex items-center slider-content text-[2.5vw] leading-[1.1] font-display'>
               {slides[current].quote}
             </div>
 
-            <div className='flex justify-center items-center gap-[8vw] w-[60%]'>
-              <div className='w-[50%]'>
-                <img
-                  src={slides[current].image}
-                  alt='slide visual'
-                  className='w-[10vw] h-[10vw] object-cover rounded-[1vw] slider-image'
-                />
-              </div>
+            <div className='flex-1 flex items-center justify-center'>
+              <img
+                src={slides[current].image}
+                alt='slide visual'
+                className='w-full h-[55vh] object-cover rounded-[1.5vw] slider-image'
+              />
             </div>
           </div>
 

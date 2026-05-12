@@ -30,7 +30,7 @@ const ClipPath = ({ clipRef }) => {
       .to('.clip-container', {
         rotateZ: 0,
         duration:1.2,
-        y:'8vw',
+        y:'2vw',
         x:'-2vw',
         ease:'power4.inOut'
       },'=-0.3')

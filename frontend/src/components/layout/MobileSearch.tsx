@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { gsap } from "gsap";
 import { useSearch } from "@/hooks/useSearch";
 import { resolveLink } from "@/lib/api/search";
+import ScaleLoader from "react-spinners/ScaleLoader";
+import { toast } from "sonner";
 
 const PLACEHOLDERS = ["Search ticker", "Search contract", "Paste a link"];
 const URL_PATTERN = /^https?:\/\//i;
@@ -53,7 +55,17 @@ export default function MobileSearch({ open, onClose }: { open: boolean; onClose
         if (res.suggested_market_path) {
           router.push(res.suggested_market_path);
           onClose();
+        } else {
+          toast.error("Could not resolve link", {
+            description: "No market found for this URL.",
+            duration: 3000,
+          });
         }
+      } catch {
+        toast.error("Could not resolve link", {
+          description: "Check your connection and try again.",
+          duration: 3000,
+        });
       } finally {
         setResolving(false);
       }
@@ -118,7 +130,7 @@ export default function MobileSearch({ open, onClose }: { open: boolean; onClose
       <div className="flex-1 overflow-y-auto">
         {resolving ? (
           <div className="flex flex-col items-center justify-center pt-24 gap-2 text-white/30 text-sm">
-            <div className="w-5 h-5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+            <ScaleLoader color="rgba(255,255,255,0.6)" height={20} width={2.5} margin={1.5} />
             <span>Resolving link…</span>
           </div>
         ) : isUrl ? (

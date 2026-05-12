@@ -3,6 +3,11 @@ import { trendingPoller } from "../services/trending-poller";
 import { oracleUpdater } from "../services/oracle-updater";
 import { localHypeDetector } from "../services/local-hype-detector";
 import { marketSpawner } from "../services/market-spawner";
+import { metadataEnricher } from "../services/metadata-enricher";
+import {
+  resolveTickerImage,
+  tickerFromIdentifier,
+} from "../services/ticker-image-resolver";
 import * as db from "../db";
 import { log } from "../utils/log";
 
@@ -144,4 +149,53 @@ adminRoutes.post("/candidates/:id/reject", async (c) => {
   if (!cand) return c.json({ error: "candidate not found" }, 404);
   await db.updateCandidateVerdict(id, "manual_reject");
   return c.json({ ok: true });
+});
+
+// Backfill missing image URLs for all markets that have image_url = NULL.
+// Safe to call multiple times (idempotent: skips markets that already have images).
+// Class 0/1 (crypto): CoinGecko logo lookup.
+// Class 2/3 (equity/commodity): Clearbit + CoinGecko.
+// Class 5 (CA): Helius DAS / Jupiter.
+// Class 4/6: skipped — letter-avatar is acceptable.
+adminRoutes.post("/backfill-images", async (c) => {
+  const markets = await db.getMarketsWithNullImage();
+  let updated = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const market of markets) {
+    try {
+      let imageUrl: string | null = null;
+
+      if (market.asset_class === 5) {
+        // CA market: use Helius DAS / Jupiter
+        const meta = await metadataEnricher.fetch(market.identifier);
+        imageUrl = meta?.image_url ?? null;
+      } else if (market.asset_class !== 4 && market.asset_class !== 6) {
+        // Crypto / equity / commodity: derive ticker from attention-token identifier
+        const ticker = tickerFromIdentifier(market.identifier, market.asset_class);
+        if (ticker) {
+          imageUrl = await resolveTickerImage(ticker, market.asset_class);
+        }
+      }
+
+      if (imageUrl) {
+        await db.updateMarketImage(market.pda, imageUrl);
+        updated++;
+      } else {
+        skipped++;
+      }
+    } catch (e: any) {
+      errors.push(`${market.identifier}: ${e.message}`);
+      log.warn({ err: e, identifier: market.identifier }, "backfill-images error");
+    }
+  }
+
+  return c.json({
+    ok: true,
+    total: markets.length,
+    updated,
+    skipped,
+    errors: errors.slice(0, 20),
+  });
 });

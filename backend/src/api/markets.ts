@@ -19,6 +19,72 @@ import {
 
 export const marketsRoutes = new Hono();
 
+let _solPriceCache: { price: number; ts: number } | null = null;
+
+async function fetchSolPriceUsd(): Promise<number> {
+  if (_solPriceCache && Date.now() - _solPriceCache.ts < 5 * 60 * 1000) {
+    return _solPriceCache.price;
+  }
+
+  // Try sources in order; first success wins.
+  const sources: Array<() => Promise<number>> = [
+    // CryptoCompare — no auth, reliable from server environments including Railway
+    async () => {
+      const res = await fetch(
+        "https://min-api.cryptocompare.com/data/price?fsym=SOL&tsyms=USD",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { USD: number };
+      return d.USD ?? 0;
+    },
+    // Binance — no auth, high rate limits
+    async () => {
+      const res = await fetch(
+        "https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { price: string };
+      return parseFloat(d.price);
+    },
+    // Bybit — no auth
+    async () => {
+      const res = await fetch(
+        "https://api.bybit.com/v5/market/tickers?category=spot&symbol=SOLUSDT",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { result: { list: Array<{ lastPrice: string }> } };
+      return parseFloat(d.result?.list?.[0]?.lastPrice ?? "0");
+    },
+    // CoinGecko — last resort (rate-limited from shared IPs)
+    async () => {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+        { signal: AbortSignal.timeout(4000) },
+      );
+      if (!res.ok) return 0;
+      const d = (await res.json()) as { solana: { usd: number } };
+      return d?.solana?.usd ?? 0;
+    },
+  ];
+
+  for (const source of sources) {
+    try {
+      const price = await source();
+      if (price > 0) {
+        _solPriceCache = { price, ts: Date.now() };
+        return price;
+      }
+    } catch {
+      // try next source
+    }
+  }
+
+  return _solPriceCache?.price ?? 0;
+}
+
 const jsonSafe = (v: unknown): unknown =>
   JSON.parse(
     JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x)),
@@ -82,7 +148,8 @@ const TOPIC_CLASSES = [6];
 marketsRoutes.get("/", async (c) => {
   const assetClass = c.req.query("assetClass");
   const type = c.req.query("type"); // "token" | "topic"
-  const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
+  const limit = Math.min(Number(c.req.query("limit") ?? 20), 100);
+  const offset = Math.max(Number(c.req.query("offset") ?? 0), 0);
   const sortBy = c.req.query("sortBy") ?? "mindshare";
   const order = c.req.query("order") === "asc" ? "ASC" : "DESC";
   const includeSparkline = c.req.query("sparkline") !== "false";
@@ -90,6 +157,7 @@ marketsRoutes.get("/", async (c) => {
   const sortCol =
     sortBy === "volume" ? sql`real_sol_reserves` :
     sortBy === "created_at" ? sql`created_at` :
+    sortBy === "market_cap" ? sql`(CAST(base_virtual_sol AS numeric) + CAST(real_sol_reserves AS numeric)) * CAST(tokens_minted AS numeric) / NULLIF(CAST(virtual_token_supply AS numeric) - CAST(tokens_minted AS numeric), 0)` :
     sql`current_mindshare_bps`;
   const dir = order === "ASC" ? sql`ASC` : sql`DESC`;
 
@@ -111,21 +179,21 @@ marketsRoutes.get("/", async (c) => {
   const rows =
     classes !== null
       ? await sql<db.MarketRow[]>`
-          SELECT * FROM markets WHERE asset_class = ANY(${classes as any})
-          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+          SELECT * FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `
       : await sql<db.MarketRow[]>`
-          SELECT * FROM markets
-          ORDER BY ${sortCol} ${dir} LIMIT ${limit}
+          SELECT * FROM markets WHERE image_url IS NOT NULL
+          ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `;
 
   const [{ count }] =
     classes !== null
       ? await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any})
+          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
         `
       : await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets
+          SELECT COUNT(*)::bigint as count FROM markets WHERE image_url IS NOT NULL
         `;
 
   // Bulk-fetch 24h aggregates so list view doesn't N+1.
@@ -187,7 +255,7 @@ marketsRoutes.get("/", async (c) => {
             hourly AS (
               SELECT
                 market_pda,
-                ((block_time / 3600) * 3600)::bigint AS bucket,
+                ((block_time / 900) * 900)::bigint AS bucket,
                 SUM(CASE WHEN side = 0 THEN token_amount ELSE -token_amount END)::bigint AS net_delta,
                 (ARRAY_AGG(sol_amount   ORDER BY block_time DESC))[1] AS last_sol,
                 (ARRAY_AGG(token_amount ORDER BY block_time DESC))[1] AS last_tokens
@@ -219,11 +287,18 @@ marketsRoutes.get("/", async (c) => {
     }
     // mcap = close_price (lamports/token) × cum_tokens (token base units) → lamports
     const mcapMap = new Map<string, bigint[]>();
+    const priceSparkMap = new Map<string, number[]>();
     for (const r of mcapRows) {
-      const mcap = BigInt(Math.floor(r.close_price * Number(r.cum_tokens)));
-      const arr = mcapMap.get(r.market_pda) ?? [];
-      arr.push(mcap);
-      mcapMap.set(r.market_pda, arr);
+      if (!Number.isFinite(r.close_price) || r.close_price <= 0) continue;
+      const raw = r.close_price * Number(r.cum_tokens);
+      if (Number.isFinite(raw)) {
+        const arr = mcapMap.get(r.market_pda) ?? [];
+        arr.push(BigInt(Math.floor(raw)));
+        mcapMap.set(r.market_pda, arr);
+      }
+      const priceArr = priceSparkMap.get(r.market_pda) ?? [];
+      priceArr.push(r.close_price);
+      priceSparkMap.set(r.market_pda, priceArr);
     }
 
     for (const m of enriched) {
@@ -234,6 +309,7 @@ marketsRoutes.get("/", async (c) => {
       if (includeSparkline) {
         m.sparkline_24h = sparkMap.get(m.pda) ?? [];
         m.market_cap_sparkline_24h = mcapMap.get(m.pda) ?? [];
+        m.price_sparkline_24h = priceSparkMap.get(m.pda) ?? [];
       }
 
       // Token economics derived from AMM state — free since we already have the row
@@ -245,11 +321,13 @@ marketsRoutes.get("/", async (c) => {
     }
   }
 
-  return c.json(jsonSafe({ markets: enriched, total: count }));
+  const solPriceUsd = await fetchSolPriceUsd();
+  return c.json(jsonSafe({ markets: enriched, total: count, sol_price_usd: solPriceUsd }));
 });
 
 marketsRoutes.get("/:identifier", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
@@ -302,6 +380,8 @@ marketsRoutes.get("/:identifier", async (c) => {
       : 0,
   }));
 
+  const solPriceUsd = await fetchSolPriceUsd();
+
   return c.json(
     jsonSafe({
       market,
@@ -317,6 +397,7 @@ marketsRoutes.get("/:identifier", async (c) => {
         market_cap_lamports: econ.market_cap_lamports,
         fdv_lamports: econ.fdv_lamports,
         liquidity_lamports: econ.liquidity_lamports,
+        sol_price_usd: solPriceUsd,
       },
     }),
   );
@@ -334,6 +415,7 @@ marketsRoutes.get("/:identifier/trades", async (c) => {
 // On-chain oracle account state untuk live mindshare/ratchet meter.
 marketsRoutes.get("/:identifier/oracle", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 
@@ -371,6 +453,7 @@ const INTERVAL_SECONDS: Record<string, number> = {
 
 marketsRoutes.get("/:identifier/ohlc", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const parsed = ohlcSchema.safeParse({
     interval: c.req.query("interval"),
     limit: c.req.query("limit"),
@@ -461,6 +544,7 @@ marketsRoutes.get("/:identifier/ohlc", async (c) => {
 // AI thesis untuk market detail page (Elfa Chat).
 marketsRoutes.get("/:identifier/ai-context", async (c) => {
   const id = decodeURIComponent(c.req.param("identifier"));
+  if (id.length > 64) return c.json({ error: "Identifier too long" }, 400);
   const market = await db.getMarketByIdentifier(id);
   if (!market) return c.json({ error: "Market not found" }, 404);
 

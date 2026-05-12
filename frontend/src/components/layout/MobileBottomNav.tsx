@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flame, Coins, Wallet } from "lucide-react";
+import { Hash, Coins, Wallet } from "lucide-react";
 
 const items = [
-  { href: "/topics", Icon: Flame },
+  { href: "/topics", Icon: Hash },
   { href: "/tokens", Icon: Coins },
   { href: "/portfolio", Icon: Wallet },
 ];

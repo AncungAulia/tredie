@@ -31,8 +31,8 @@ const mids = [
     superScript: 's'
   },
   {
-    no: '1',
-    superScript: 'way'
+    no: '0',
+    superScript: ''
   },
   {
     no: '200',
@@ -41,27 +41,27 @@ const mids = [
 ];
 
   const heading = [
-    "What You Can Trade",
-    "Always Up to Date",
-    "Ready in Seconds",
-    "Prices Only Go Up",
-    "In 30 Minutes",
+    "5 Asset Classes",
+    "Updates Every 15 Minutes",
+    "Opens in 30 Seconds",
+    "The Market Listed Itself",
+    "First 30 Minutes",
   ];
 
   const content = [
-    "Crypto, stocks, gold, and currencies. All on one platform, no matter what is trending.",
-    "Every 15 minutes, we check what people are talking about and update prices to match.",
-    "The moment something starts trending, you can already trade it. It happens automatically.",
-    "Once a topic gets popular enough, its price goes up and stays there. It never drops back down.",
-    "The first market on Tredie did $200K in just 30 minutes. Real demand from real people.",
+    "Crypto, equities, commodities, FX, and topics. If attention moved it, you can trade it here.",
+    "Elfa AI reads X and Telegram every 15 minutes. When the conversation shifts, price curves shift with it.",
+    "When a topic starts gaining traction, a market opens automatically. No one has to list it.",
+    "There is no listing process. Elfa AI detects what's trending and opens a market for it automatically. Nobody submitted it. Nobody approved it.",
+    "The first market on Tredie cleared $200K in volume before most people knew it existed.",
   ];
 
   const imageSources = [
-    "https://images.unsplash.com/photo-1642790551116-18e150f248e3?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1618044619888-009e412ff12a?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1605792657660-596af9009e82?auto=format&fit=crop&w=800&q=80",
-    "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778530402/Screenshot_2026-05-12_at_03.13.12_lyhxdq.png",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531004/elfaai15_gnlw6j.jpg",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531194/marketopens_ol3suq.webp",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778531483/elfaaiauto_neohsy.jpg",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778496268/Solana_Perpetuals_ckftdk.jpg",
   ];
 
   useEffect(() => {
@@ -299,7 +299,7 @@ const mids = [
               <p
                 key={idx}
                 ref={(el) => (headingRefs.current[idx] = el)}
-                className="text-black text-[2vw] opacity-0 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-[1.2] font-bold text-center"
+                className="text-black text-[2vw] opacity-0 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 leading-[1.2] font-bold text-center w-full"
               >
                 {no}
               </p>

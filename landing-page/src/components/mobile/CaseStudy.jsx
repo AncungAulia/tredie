@@ -17,29 +17,29 @@ const CaseStudy = () => {
     {
       id: 1,
       ticker: "BTC",
-      assetClass: "Crypto Token",
-      marketType: "Viral Moment",
+      assetClass: "Crypto",
+      marketType: "Social Spike",
       network: "Solana",
       testimonial:
-        '"BTC was everywhere on social media. I saw it trending on X all morning. Opened Tredie, bought in early. By the afternoon the price had tripled."',
+        '"BTC was all over my feed that morning before the charts moved. Felt like something was happening before it happened. Got in while it was still quiet."',
     },
     {
       id: 2,
       ticker: "HANTA",
-      assetClass: "Trending Topic",
-      marketType: "Viral Moment",
+      assetClass: "Topic",
+      marketType: "News Cycle",
       network: "Solana",
       testimonial:
-        '"Hantavirus was everywhere on X and the news. I had no idea what it was, but everyone was talking about it. Opened Tredie, bought in. By evening the price had already moved."',
+        '"I had no idea what hantavirus actually was. It was just the top trending topic on X for three hours straight. That felt like a signal. Opened a position. It was."',
     },
     {
       id: 3,
       ticker: "AAPL",
-      assetClass: "Stock",
-      marketType: "Trending Event",
+      assetClass: "Equity",
+      marketType: "Live Event",
       network: "Solana",
       testimonial:
-        '"Apple\'s keynote was trending everywhere. I watched it live, opened Tredie right after, and bought. The price moved fast. No complicated steps, no waiting."',
+        '"I was watching the Apple keynote and opened Tredie before it was over. The attention was obvious. The price agreed."',
     },
   ];
 

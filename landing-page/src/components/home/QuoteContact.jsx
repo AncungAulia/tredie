@@ -4,7 +4,9 @@ import React, { useRef, useEffect, useState } from "react";
 import gsap from "gsap";
 import IconButton from "../button/IconButton";
 import ScrollTrigger from "gsap/dist/ScrollTrigger";
-gsap.registerPlugin(ScrollTrigger)
+import Link from "next/link";
+
+gsap.registerPlugin(ScrollTrigger);
 
 const QuoteContact = () => {
   const clipRef = useRef(null);
@@ -14,8 +16,8 @@ const QuoteContact = () => {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const images = [
-    "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1400&q=80",
-    "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?auto=format&fit=crop&w=1400&q=80",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778530402/Screenshot_2026-05-12_at_03.13.12_lyhxdq.png",
+    "https://res.cloudinary.com/ddzibjaqg/image/upload/v1778530402/Screenshot_2026-05-12_at_03.13.12_lyhxdq.png",
   ];
 
   useEffect(() => {
@@ -48,8 +50,14 @@ const QuoteContact = () => {
       });
     };
 
-    const onEnter = () => { tlEnter.play(0); crossfadeTo(1); };
-    const onLeave = () => { tlLeave.play(0); crossfadeTo(0); };
+    const onEnter = () => {
+      tlEnter.play(0);
+      crossfadeTo(1);
+    };
+    const onLeave = () => {
+      tlLeave.play(0);
+      crossfadeTo(0);
+    };
 
     trigger.addEventListener("mouseenter", onEnter);
     trigger.addEventListener("mouseleave", onLeave);
@@ -62,23 +70,30 @@ const QuoteContact = () => {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.fromTo('#quote-wrap', { yPercent: -50 }, {
-        yPercent: 0,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: '#quote-wrap',
-          start: 'top bottom',
-          end: 'bottom 50%',
-          scrub: true,
-        }
-      })
-    })
+      gsap.fromTo(
+        "#quote-wrap",
+        { yPercent: -50 },
+        {
+          yPercent: 0,
+          ease: "none",
+          scrollTrigger: {
+            trigger: "#quote-wrap",
+            start: "top bottom",
+            end: "bottom 50%",
+            scrub: true,
+          },
+        },
+      );
+    });
     ScrollTrigger.refresh();
     return () => ctx.revert();
-  })
+  });
 
   return (
-    <div className="h-fit translate-y-[-50%] w-full relative z-50" id="quote-wrap">
+    <div
+      className="h-fit translate-y-[-50%] w-full relative z-50"
+      id="quote-wrap"
+    >
       <section
         ref={containerRef}
         className="w-full h-screen sticky top-0 overflow-hidden bg-black"
@@ -101,42 +116,48 @@ const QuoteContact = () => {
         </div>
 
         {/* LAUNCH heading centered */}
-        <div className="absolute font-third z-5 top-[35%] left-1/2 -translate-x-1/2 text-[6.5vw] text-white whitespace-nowrap">
+        <div className="absolute font-third z-5 top-[35%] left-1/2 -translate-x-1/2 text-[6.5vw] text-[#9C93E8] whitespace-nowrap">
           LAUNCH
         </div>
-        <div className="w-[20vw] bg-[#9C93E8] h-[0.2px] absolute top-[51%] left-1/2 -translate-x-1/2 z-5" />
-
         {/* Clip Path — full width, expands from center */}
         <div
           ref={clipRef}
-          className="absolute flex z-10 flex-col cursor-pointer items-center justify-center gap-[4vw] top-0 left-0 w-full h-full bg-[#9C93E8]"
+          className="absolute flex z-[15] flex-col items-center justify-center gap-[4vw] top-0 left-0 w-full h-full bg-[#9C93E8] pointer-events-none"
           style={{ clipPath: "polygon(50% 0%, 50% 0%, 50% 100%, 50% 100%)" }}
         >
-          <p className="text-[1.8vw] leading-none text-center font-third w-[8vw]">
-            Ready to trade?
-          </p>
-
           <div className="w-[25vw] space-y-[2vw]">
             <p className="text-[3.5vw] text-center leading-[1.2] font-third">
-              What is everyone talking about?
+              Ready to launch and trade?
             </p>
             <p className="text-[1.3vw] font-medium text-center leading-[1.3]">
-              Every time the internet fixates on something, a market opens automatically. The markets are already live — just pick one and trade.
+              Something is trending right now. A market for it is already open
+              on Tredie.
             </p>
 
-            <div className="w-fit mx-auto flex items-center gap-[1vw]">
+            <a
+              href="https://app.tredie.fun"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-fit mx-auto flex items-center gap-[1vw] pointer-events-auto cursor-pointer"
+            >
               <p className="text-[0.8vw] font-semibold font-display uppercase">
                 Launch App
               </p>
-              <IconButton icon="/assets/icons/icon-arrow.svg" pad="h-[3vw] w-[3vw]" />
-            </div>
+              <IconButton
+                icon="/assets/icons/icon-arrow.svg"
+                pad="h-[3vw] w-[3vw]"
+              />
+            </a>
           </div>
         </div>
 
         {/* Trigger Area — centered */}
-        <div
+        <a
           ref={triggerRef}
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-full z-10 cursor-pointer"
+          href="https://app.tredie.fun"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[40%] h-full z-10 cursor-pointer block"
         />
       </section>
     </div>

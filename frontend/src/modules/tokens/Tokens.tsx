@@ -1,17 +1,46 @@
 "use client";
 import { useId, useRef, useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { useMarketStore, type TokenCategory } from "@/store/useMarketStore";
-import { useMarkets } from "@/hooks/useMarkets";
+import { useInfiniteMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
 import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import dynamic from "next/dynamic";
+const CardChart = dynamic(() => import("@/components/chart/CardChart"), { ssr: false });
 
-function MiniLineChart({ data, color = "#9C93E8", tall = false }: { data: number[]; color?: string; tall?: boolean }) {
+function TokenAvatar({ market, size = "sm" }: { market: Market; size?: "sm" | "md" }) {
+  const [imgError, setImgError] = useState(false);
+  const ticker = market.identifier.includes(":")
+    ? market.identifier.split(":")[1]
+    : market.identifier;
+  const sizeClass = size === "md" ? "w-12 h-12 text-base" : "w-10 h-10 text-sm";
+
+  if (market.image_url && !imgError) {
+    return (
+      <img
+        src={market.image_url}
+        alt={market.display_name ?? ticker}
+        className={`${sizeClass} rounded-full object-cover shrink-0`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div className={`${sizeClass} rounded-full shrink-0 bg-white flex items-center justify-center font-mono font-bold text-[#9C93E8]`}>
+      {ticker.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
+// SVG sparkline — kept for desktop grid cards (small h-12 area where full chart is overkill)
+function MiniLineChart({ data, color = "#9C93E8" }: { data: number[]; color?: string }) {
   const max = Math.max(...data);
   const min = Math.min(...data);
   const isFlat = max === min;
   const range = max - min || 1;
-  const h = tall ? 180 : 48;
+  const h = 48;
   const w = 160;
   const step = w / (data.length - 1);
 
@@ -41,7 +70,7 @@ function MiniLineChart({ data, color = "#9C93E8", tall = false }: { data: number
   }, []);
 
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={tall ? "w-full h-full" : "w-full h-12"} preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-12" preserveAspectRatio="none">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
@@ -71,13 +100,6 @@ function MiniLineChart({ data, color = "#9C93E8", tall = false }: { data: number
   );
 }
 
-function spotPriceSol(market: Market): number {
-  const reserves = Number(market.real_sol_reserves) + Number(market.base_virtual_sol);
-  const supply = Number(market.virtual_token_supply) - Number(market.tokens_minted);
-  if (supply === 0) return 0;
-  return reserves / supply;
-}
-
 function formatVolume(lamports: string): string {
   const sol = Number(lamports) / 1e9;
   if (sol >= 1_000_000) return `${(sol / 1_000_000).toFixed(1)}M`;
@@ -85,21 +107,19 @@ function formatVolume(lamports: string): string {
   return sol.toFixed(2);
 }
 
-function formatPrice(lamports: number): string {
-  const sol = lamports / 1e9;
-  if (sol < 0.0001) return sol.toFixed(7);
-  if (sol < 0.01) return sol.toFixed(5);
-  if (sol < 1) return sol.toFixed(4);
-  return sol.toFixed(2);
+function formatMcapUsd(fdvLamports: string | undefined, solPriceUsd: number): string {
+  if (!fdvLamports || solPriceUsd === 0) return "—";
+  const usd = (Number(fdvLamports) / 1e9) * solPriceUsd;
+  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1)}M`;
+  if (usd >= 1_000) return `$${(usd / 1_000).toFixed(1)}K`;
+  if (usd >= 1) return `$${usd.toFixed(0)}`;
+  return `$${usd.toFixed(2)}`;
 }
 
-function MobileTokenCard({ market }: { market: Market }) {
-  const price = spotPriceSol(market);
+function MobileTokenCard({ market, solPriceUsd }: { market: Market; solPriceUsd: number }) {
   const mindshare = market.current_mindshare_bps / 100;
   const ratchet = market.ratchet_multiplier_bps / 10_000;
-  const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
-  const currentMcap = price * Number(market.tokens_minted);
-  const sparkline = rawSparkline.length >= 2 ? rawSparkline : Array(2).fill(currentMcap);
+  const rawSparkline = (market.price_sparkline_24h ?? []);
   const sparklineDelta =
     rawSparkline.length >= 2 && rawSparkline[0] !== 0
       ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
@@ -117,11 +137,16 @@ function MobileTokenCard({ market }: { market: Market }) {
       <div className="h-full flex flex-col pt-28 px-6">
         {/* Market info */}
         <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-2xl font-bold text-white leading-tight truncate">
-              {market.display_name ?? market.identifier}
-            </h2>
-            <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className="mt-0.5 shrink-0">
+              <TokenAvatar market={market} size="md" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-bold text-white leading-tight truncate">
+                {market.display_name ?? market.identifier}
+              </h2>
+              <p className="text-white/30 text-xs font-mono mt-1">{market.identifier}</p>
+            </div>
           </div>
           <div className="flex flex-col items-end shrink-0">
             <span className="text-[10px] text-white/30 uppercase tracking-wider">Attention</span>
@@ -133,15 +158,15 @@ function MobileTokenCard({ market }: { market: Market }) {
           </div>
         </div>
 
-        {/* Price */}
+        {/* Market Cap */}
         <div className="flex items-baseline gap-2 mt-3">
-          <span className="text-3xl font-mono font-bold text-white">{formatPrice(price)}</span>
-          <span className="text-white/30 font-mono">SOL</span>
+          <span className="text-3xl font-mono font-bold text-white">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
+          <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
         </div>
 
-        {/* Large sparkline */}
-        <div className="flex-1 min-h-0 mt-4">
-          <MiniLineChart data={sparkline} color={color} tall />
+        {/* Full-height chart — OHLC data, identical pipeline to token detail 24H */}
+        <div className="flex-1 min-h-0 mt-4 rounded-xl overflow-hidden">
+          <CardChart identifier={market.identifier} market={market} color={color} />
         </div>
 
         {/* Bottom stats */}
@@ -150,7 +175,6 @@ function MobileTokenCard({ market }: { market: Market }) {
             <span className="text-[11px] text-white/30 uppercase tracking-wider">Vol 24h</span>
             <span className="text-sm font-mono text-white/70">{formatVolume(market.volume_24h_lamports)} SOL</span>
           </div>
-         
           <div className="bg-[rgba(156,147,232,0.12)] text-[#9C93E8] px-3 py-1.5 rounded-lg text-sm font-mono font-bold">
             {ratchet.toFixed(1)}x
           </div>
@@ -171,12 +195,14 @@ function MobileTokenCard({ market }: { market: Market }) {
 }
 
 export default function Tokens() {
+  const pathname = usePathname();
+  const isDetailRoute = pathname.startsWith("/tokens/");
   const { activeTokenCategory, setTokenCategory } = useMarketStore();
   const [showToggle, setShowToggle] = useState(true);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const isChangingCategory = useRef(false);
-
+  const categoryEffectMounted = useRef(false);
   useEffect(() => {
     const el = mobileScrollRef.current;
     if (!el) return;
@@ -191,32 +217,61 @@ export default function Tokens() {
     return () => el.removeEventListener("scroll", onScroll);
   }, []);
 
-  const { data: trendingMarkets = [], isLoading: loadingTrending } = useMarkets({
-    type: "token",
-    sortBy: "mindshare",
-    limit: 50,
-    sparkline: true,
-  });
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const mobileSentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data: newestMarkets = [], isLoading: loadingNewest } = useMarkets({
-    type: "token",
-    sortBy: "created_at",
-    order: "desc",
-    limit: 50,
-    sparkline: true,
-  });
+  const trending = useInfiniteMarkets({ type: "token", sortBy: "mindshare", sparkline: true });
+  const newest = useInfiniteMarkets({ type: "token", sortBy: "created_at", order: "desc", sparkline: true });
+  const topMcap = useInfiniteMarkets({ type: "token", sortBy: "market_cap", sparkline: true });
 
-  const isLoading = activeTokenCategory === "Trending" ? loadingTrending : loadingNewest;
-  const filtered = activeTokenCategory === "Trending" ? trendingMarkets : newestMarkets;
+  const active = activeTokenCategory === "Trending" ? trending : activeTokenCategory === "Latest" ? newest : topMcap;
+  const { fetchNextPage, hasNextPage, isFetchingNextPage, data, isLoading } = active;
 
-  const categories: TokenCategory[] = ["Trending", "Latest"];
+  const filtered = data?.pages.flatMap((p) => p.markets) ?? [];
+  const solPriceUsd = data?.pages[0]?.solPriceUsd ?? 0;
+
+  // Desktop sentinel — scoped to viewport
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
+      { threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Mobile sentinel — scoped to snap scroll container
+  useEffect(() => {
+    const el = mobileSentinelRef.current;
+    const root = mobileScrollRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting && hasNextPage && !isFetchingNextPage) fetchNextPage(); },
+      { root, threshold: 0.1 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const categories: TokenCategory[] = ["Trending", "Latest", "Top"];
 
   useEffect(() => {
+    if (!categoryEffectMounted.current) {
+      categoryEffectMounted.current = true;
+      return;
+    }
     requestAnimationFrame(() => {
       mobileScrollRef.current?.scrollTo({ top: 0, behavior: "instant" });
       lastScrollTop.current = 0;
     });
   }, [activeTokenCategory]);
+
+  // Show toggle again when returning from detail to list
+  useEffect(() => {
+    if (!isDetailRoute) setShowToggle(true);
+  }, [isDetailRoute]);
 
   function handleCategoryChange(cat: TokenCategory) {
     isChangingCategory.current = true;
@@ -229,29 +284,34 @@ export default function Tokens() {
 
   const categoryToggle = (mobile: boolean) => (
     <div className={mobile
-      ? `md:hidden fixed top-[4.25rem] left-0 right-0 z-20 flex justify-center py-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
-      : "flex items-center"
+      ? `md:hidden fixed top-[4rem] left-0 right-0 z-20 flex justify-center pb-2 transition-all duration-300 ${showToggle ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-3 pointer-events-none"}`
+      : "flex cursor-pointer items-center"
     }>
-      <div className={`relative flex p-1 rounded-full border ${mobile ? "bg-white/[0.08] backdrop-blur-md border-white/[0.08]" : "bg-white/[0.04] border-white/[0.07]"}`}>
-        {/* Sliding pill */}
-        <span
-          aria-hidden="true"
-          className="absolute top-1 bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
-          style={{
-            left: "0.25rem",
-            width: `calc((100% - 0.5rem) / ${categories.length})`,
-            transform: `translateX(${activeIdx * 100}%)`,
-          }}
-        />
+      <div className={mobile 
+        ? "w-full mx-6 flex items-center" 
+        : `relative flex p-1 rounded-full border bg-white/[0.04] border-white/[0.07]`
+      }>
+        {/* Background pill only for desktop */}
+        {!mobile && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 cursor-pointer bottom-1 rounded-full bg-[rgba(156,147,232,0.15)] border border-[rgba(156,147,232,0.30)] transition-transform duration-300 ease-out will-change-transform pointer-events-none"
+            style={{
+              left: "0.25rem",
+              width: `calc((100% - 0.5rem) / ${categories.length})`,
+              transform: `translateX(${activeIdx * 100}%)`,
+            }}
+          />
+        )}
+
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => handleCategoryChange(cat)}
-            className={`relative z-10 flex-1 text-center whitespace-nowrap font-medium transition-colors duration-300 rounded-full ${
-              mobile
-                ? `px-5 py-1.5 text-xs ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50"}`
-                : `px-6 py-2 text-sm ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
-            }`}
+            className={mobile
+              ? `flex-1 py-3 text-center text-xs font-bold tracking-wider transition-colors duration-300 cursor-pointer ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/40"}`
+              : `relative cursor-pointer z-10 w-24 py-2 text-center text-sm font-medium transition-colors duration-300 rounded-full ${activeTokenCategory === cat ? "text-[#9C93E8]" : "text-white/50 hover:text-white"}`
+            }
           >
             {cat}
           </button>
@@ -262,25 +322,31 @@ export default function Tokens() {
 
   return (
     <>
-      {categoryToggle(true)}
-
       {/* Mobile: TikTok-style full-screen snap scroll */}
-      <div ref={mobileScrollRef} className="md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory">
+      <div
+        ref={mobileScrollRef}
+        className={`md:hidden fixed inset-0 z-10 overflow-y-scroll snap-y snap-mandatory overscroll-y-none${isDetailRoute ? " invisible pointer-events-none" : ""}`}
+        aria-hidden={isDetailRoute || undefined}
+      >
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="h-dvh snap-start bg-white/[0.03] animate-shimmer" />
             ))
           : filtered.map((market) => (
-              <MobileTokenCard key={market.identifier} market={market} />
+              <MobileTokenCard key={market.identifier} market={market} solPriceUsd={solPriceUsd} />
             ))}
+        {/* Mobile sentinel — snap card di ujung, trigger fetch saat terlihat */}
+        {hasNextPage && (
+          <div ref={mobileSentinelRef} className="h-dvh snap-start flex items-center justify-center">
+            <span className="text-white/20 text-xs">Loading more…</span>
+          </div>
+        )}
       </div>
 
-      {/* Desktop: grid layout */}
-      <div className="hidden md:flex flex-col gap-8 w-full">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-3xl font-display font-bold">Tokens</h1>
-        </div>
+      {!isDetailRoute && categoryToggle(true)}
 
+      {/* Desktop: grid layout */}
+      {!isDetailRoute && <div className="hidden md:flex flex-col gap-8 w-full">
         {categoryToggle(false)}
 
         {isLoading ? (
@@ -297,28 +363,26 @@ export default function Tokens() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filtered.map((market) => {
               const mindshare = market.current_mindshare_bps / 100;
-              const price = spotPriceSol(market);
               const ratchet = market.ratchet_multiplier_bps / 10_000;
-              const rawSparkline = (market.market_cap_sparkline_24h ?? []).map(Number);
-              const currentMcap = price * Number(market.tokens_minted);
-              const sparkline =
-                rawSparkline.length >= 2
-                  ? rawSparkline
-                  : Array(2).fill(currentMcap);
+              const rawSparkline = (market.price_sparkline_24h ?? []);
               const sparklineDelta =
                 rawSparkline.length >= 2 && rawSparkline[0] !== 0
                   ? ((rawSparkline[rawSparkline.length - 1] - rawSparkline[0]) / rawSparkline[0]) * 100
                   : 0;
+              const color = sparklineDelta >= 0 ? "#9C93E8" : "#EF4444";
 
               return (
                 <Link href={`/tokens/${encodeURIComponent(market.identifier)}`} key={market.identifier}>
                   <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
                     <div className="flex justify-between items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
-                          {market.display_name ?? market.identifier}
-                        </h3>
-                        <p className="text-white/30 text-xs font-mono mt-1.5">{market.identifier}</p>
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <TokenAvatar market={market} size="sm" />
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
+                            {market.display_name ?? market.identifier}
+                          </h3>
+                          <p className="text-white/30 text-xs font-mono mt-1.5">{market.identifier}</p>
+                        </div>
                       </div>
                       <div className="flex flex-col items-end shrink-0">
                         <span className="text-[10px] text-white/30 uppercase tracking-wider">Attention</span>
@@ -331,11 +395,12 @@ export default function Tokens() {
                     </div>
 
                     <div className="flex items-baseline gap-2">
-                      <span className="text-white text-2xl font-mono font-bold">{formatPrice(price)}</span>
-                      <span className="text-white/30 text-sm font-mono">SOL</span>
+                      <span className="text-white text-2xl font-mono font-bold">{formatMcapUsd(market.fdv_lamports, solPriceUsd)}</span>
+                      <span className="text-white/30 text-xs font-mono uppercase tracking-wider">Mcap</span>
                     </div>
 
-                    <MiniLineChart data={sparkline} />
+                    {/* Desktop card chart — OHLC data, identical pipeline to token detail 24H */}
+                    <CardChart identifier={market.identifier} market={market} color={color} heightClass="h-12" />
 
                     <div className="flex items-center justify-between pt-4 border-t border-white/[0.05]">
                       <div className="flex items-center gap-2">
@@ -354,7 +419,14 @@ export default function Tokens() {
             })}
           </div>
         )}
-      </div>
+        {/* Sentinel + loading indicator for desktop */}
+        <div ref={sentinelRef} className="h-1" />
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-6">
+            <span className="text-white/20 text-xs">Loading more…</span>
+          </div>
+        )}
+      </div>}
     </>
   );
 }

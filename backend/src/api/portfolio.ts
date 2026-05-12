@@ -95,8 +95,12 @@ portfolioRoutes.get("/:address", async (c) => {
     const solInvested = BigInt(p.sol_invested);
     const solReceived = BigInt(p.sol_received);
 
-    // Spot price from current curve (lamports per token base unit)
-    const poolSol = BigInt(p.base_virtual_sol) + BigInt(p.real_sol_reserves);
+    // Spot price from current curve (lamports per token base unit).
+    // Must apply ratchet multiplier to base_virtual_sol to match the on-chain
+    // buy/sell formula: effective_virtual_sol = base_virtual_sol * ratchet / 10000.
+    const effectiveVirtualSol =
+      (BigInt(p.base_virtual_sol) * BigInt(p.ratchet_multiplier_bps)) / 10000n;
+    const poolSol = effectiveVirtualSol + BigInt(p.real_sol_reserves);
     const poolTokens =
       BigInt(p.virtual_token_supply) - BigInt(p.tokens_minted);
     const spotPriceLamports =

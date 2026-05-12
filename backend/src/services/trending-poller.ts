@@ -5,6 +5,7 @@ import { config } from "../config";
 import { log } from "../utils/log";
 import { marketSpawner } from "./market-spawner";
 import { metadataEnricher } from "./metadata-enricher";
+import { resolveTickerImage } from "./ticker-image-resolver";
 import { judgeCandidates, JudgeCandidate, JudgeDecision } from "../ai/gemini-judge";
 
 const DEDUP_WINDOW_MS = 60 * 60 * 1000; // re-judge same input only after 1h
@@ -193,10 +194,23 @@ export class TrendingPoller {
 
   async collectTokens(): Promise<CandidateSummary[]> {
     const tokens = await elfa.getTrendingTokens("1h", 50);
+
+    // Pre-compute asset classes and base tickers so we can resolve images in parallel
+    const tokenMeta = tokens.map((token) => {
+      const sym = token.token.toUpperCase();
+      const cls = detectAssetClass(sym);
+      const baseTicker = sym.startsWith("xyz:") ? sym.slice(4) : sym;
+      return { sym, cls, baseTicker };
+    });
+
+    // Resolve logo URLs in parallel — failures return null (letter-avatar fallback)
+    const imageResults = await Promise.allSettled(
+      tokenMeta.map(({ baseTicker, cls }) => resolveTickerImage(baseTicker, cls)),
+    );
+
     const out: CandidateSummary[] = [];
     for (const [idx, token] of tokens.entries()) {
-      // Elfa returns lowercase; we normalize to uppercase.
-      const sym = token.token.toUpperCase();
+      const { sym, cls, baseTicker } = tokenMeta[idx];
       const mindshareBps = elfa.tokenMindshareBps(token, tokens);
       const mindsharePct = mindshareBps / 100;
 
@@ -212,14 +226,17 @@ export class TrendingPoller {
       //   crypto/dex (asset_class 0/1) → "a" + UPPERCASE ticker
       //   equity/commodity/fx (2/3/4)  → "ax" + UPPERCASE ticker (Elfa
       //     prefixes them with "xyz:" already; strip and re-prefix)
-      const cls = detectAssetClass(sym);
-      const baseTicker = sym.startsWith("xyz:") ? sym.slice(4) : sym;
       const attnIdentifier =
         cls === 0 || cls === 1 ? `a${baseTicker}` : `ax${baseTicker}`;
       // Validate length cap; if ticker too long, fallback identifier becomes
       // empty so legacy-spawn skips it (AI path can shorten more aggressively).
       const fallbackIdentifier =
         Buffer.byteLength(attnIdentifier, "utf8") <= 10 ? attnIdentifier : "";
+
+      const imageUrl =
+        imageResults[idx].status === "fulfilled"
+          ? imageResults[idx].value
+          : null;
 
       out.push({
         sourceKind: "token" as const,
@@ -235,8 +252,8 @@ export class TrendingPoller {
         fallback: {
           identifier: fallbackIdentifier,
           assetClass: cls,
-          // Use the bare ticker as a friendly display when no AI metadata
           displayName: baseTicker,
+          imageUrl,
           shouldSpawnByRule:
             !!fallbackIdentifier &&
             mindsharePct > config.AUTO_SPAWN_THRESHOLD_PCT,
@@ -349,6 +366,10 @@ export class TrendingPoller {
     let lowConfidence = 0;
     let invalidIdent = 0;
 
+    // Track display names spawned within this batch to catch within-cycle
+    // duplicates where Gemini assigns different identifiers to the same topic.
+    const spawnedDisplayNames = new Set<string>();
+
     for (let i = 0; i < candidates.length; i++) {
       const c = candidates[i];
       const d = byIndex.get(i);
@@ -435,6 +456,39 @@ export class TrendingPoller {
         continue;
       }
 
+      // Dedup by display_name: catch cases where Gemini assigns different
+      // identifiers to semantically identical topics across cycles or within
+      // the same batch (e.g. "Coinbase Outage" → cbOutage vs coinOutage).
+      const resolvedDisplayName = d.display_name ?? c.fallback.displayName;
+      if (resolvedDisplayName) {
+        const normalizedName = resolvedDisplayName.toLowerCase().trim();
+
+        // Within-batch check
+        if (spawnedDisplayNames.has(normalizedName)) {
+          await db.insertMarketCandidate({
+            ...baseRow,
+            verdict: "merge",
+            ai_reason: `display_name_dedup (within-batch): ${resolvedDisplayName}`,
+          });
+          merged++;
+          continue;
+        }
+
+        // DB check for previously spawned markets with the same display_name
+        const nameDuplicate = await db.findMarketByDisplayName(resolvedDisplayName);
+        if (nameDuplicate) {
+          await db.insertMarketCandidate({
+            ...baseRow,
+            verdict: "merge",
+            merged_with: nameDuplicate.identifier,
+            spawn_market_pda: nameDuplicate.pda,
+            ai_reason: `display_name_dedup (db): ${resolvedDisplayName}`,
+          });
+          merged++;
+          continue;
+        }
+      }
+
       const candidateId = await db.insertMarketCandidate({
         ...baseRow,
         verdict: "spawn",
@@ -446,12 +500,15 @@ export class TrendingPoller {
           identifier: validIdent,
           assetClass: d.asset_class,
           source: "auto_spawn",
-          displayName: d.display_name ?? c.fallback.displayName ?? null,
+          displayName: resolvedDisplayName ?? null,
           imageUrl: c.fallback.imageUrl ?? null,
           sourceUrl: c.fallback.sourceUrl ?? null,
           sourceMetadata: c.fallback.sourceMetadata ?? null,
         });
         await db.updateCandidateVerdict(candidateId, "spawn", market.pda);
+        if (resolvedDisplayName) {
+          spawnedDisplayNames.add(resolvedDisplayName.toLowerCase().trim());
+        }
         spawned++;
       } catch (e: any) {
         await db.updateCandidateVerdict(candidateId, "spawn_failed");

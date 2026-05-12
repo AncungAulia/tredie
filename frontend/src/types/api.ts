@@ -17,8 +17,10 @@ export interface Market {
   base_virtual_sol: string;
   volume_24h_lamports: string;
   holders_count: string;
+  fdv_lamports?: string;
   sparkline_24h: number[];
   market_cap_sparkline_24h: string[];
+  price_sparkline_24h: number[];
   created_at: string;
 }
 
@@ -58,6 +60,8 @@ export interface MarketDetail extends Market {
     volume_24h_lamports: string;
     trade_count_24h: string;
     holders_count: string;
+    fdv_lamports?: string;
+    sol_price_usd?: number;
   };
 }
 
@@ -186,12 +190,10 @@ export interface SearchResult {
 }
 
 export interface ResolveLinkResponse {
-  identifier: string | null;
-  display_name: string | null;
-  asset_class: AssetClass | null;
-  market_pda: string | null;
+  metadata: Record<string, unknown>;
+  extracted_symbol: string | null;
+  confidence: number;
   suggested_market_path: string | null;
-  source_url: string;
 }
 
 export interface TrendingToken {
