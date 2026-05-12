@@ -140,7 +140,7 @@ function GateContent({
           </p>
           <div className="flex items-center gap-3 mt-0.5">
             <a
-              href="https://x.com/tredie"
+              href="https://x.com/trediedotfun/status/2054165218230681677?s=46"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-[#9C93E8] text-[11px] font-medium hover:text-[#b8b2f0] transition-colors"
