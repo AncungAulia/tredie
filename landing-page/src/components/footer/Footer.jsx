@@ -95,8 +95,8 @@ const Footer = () => {
         {/* TOP SECTION */}
         <div className="w-full h-[60%] bg-[#1E1E1E] flex justify-between items-start text-white">
           <div className="flex flex-col justify-center h-full">
-            <h1 className="text-[4vw] font-third leading-[1]">
-              Trade the <br /> Attention Economy
+            <h1 className="text-[4vw] font-third leading-[1.2]">
+              Trade the <br /> World's Attention
             </h1>
             <div className="text-[1vw] leading-[1.6vw] font-light text-gray-300 mt-auto">
               <p>Tredie</p>

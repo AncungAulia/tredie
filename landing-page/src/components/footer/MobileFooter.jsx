@@ -9,9 +9,9 @@ export default function MobileFooter() {
         <div className="flex items-start mb-6">
           <div>
             <h2 className="text-4xl font-bold leading-tight mb-4">
-              Trade the
+              Trade the World's 
               <br />
-              Attention Economy
+              Attention
             </h2>
             <div className="space-y-1 text-sm">
               <p>Tredie</p>
@@ -27,19 +27,19 @@ export default function MobileFooter() {
           EXPLORE
         </h3>
         <nav className="space-y-0 font-display ">
-          <a href="#" className="block text-[6vw] ">
+          <a href="#hero" className="block text-[6vw] ">
             Home
           </a>
-          <a href="#" className="block text-[6vw] ">
+          <a href="#about" className="block text-[6vw] ">
             About
           </a>
-          <a href="#" className="block text-[6vw] ">
+          <a href="#markets" className="block text-[6vw] ">
             Markets
           </a>
-          <a href="#" className="block text-[6vw] ">
+          <a href="#insights" className="block text-[6vw] ">
             How It Works
           </a>
-          <a href="#" className="block text-[6vw] ">
+          <a href="#casee-study" className="block text-[6vw] ">
             Trending
           </a>
           <a href="https://app.tredie.fun/" target="_blank" rel="noopener noreferrer" className="block text-[6vw] ">
