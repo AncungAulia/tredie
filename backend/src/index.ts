@@ -1,3 +1,4 @@
+import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger as honoLogger } from "hono/logger";
 import { buildRouter } from "./api/routes";
@@ -8,10 +9,15 @@ import { oracleUpdater } from "./services/oracle-updater";
 import { startRotationCron } from "./services/auto-manager";
 import { localHypeDetector } from "./services/local-hype-detector";
 
-const app = buildRouter();
+// Middleware HARUS didaftarkan sebelum route di-mount. Hono menjalankan
+// handler sesuai urutan registrasi, jadi `app.use()` setelah `app.route()`
+// tidak pernah jalan untuk route yang match — hanya untuk 404 fallthrough.
+const app = new Hono();
 
 app.use("*", honoLogger());
 app.use("*", cors({ origin: config.FRONTEND_URL, credentials: true }));
+
+app.route("/", buildRouter());
 
 app.onError((err, c) => {
   log.error({ err }, "Unhandled error");
