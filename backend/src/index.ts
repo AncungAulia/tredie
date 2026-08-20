@@ -41,5 +41,11 @@ log.info(
 
 export default {
   port: config.PORT,
+  // Default idleTimeout Bun 10 detik, sementara operasi admin sah-sah saja
+  // berjalan lama: update-oracles menyentuh seluruh market on-chain (~36s) dan
+  // poll-trending menembak beberapa endpoint Elfa berurutan (~16s). Lewat batas
+  // itu Bun menutup soket, cloudflared melaporkan EOF, dan pemanggil menerima
+  // 502 padahal handler-nya menyelesaikan pekerjaan dan mencatat 200.
+  idleTimeout: 120,
   fetch: app.fetch,
 };
