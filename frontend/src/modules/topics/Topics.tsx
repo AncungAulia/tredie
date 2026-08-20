@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState, useEffect } from "react";
+import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { useMarkets } from "@/hooks/useMarkets";
 import type { Market } from "@/types/api";
@@ -52,16 +53,7 @@ function TopicCard({
       <div className="group bg-white/[0.03] border border-white/[0.07] hover:border-[rgba(156,147,232,0.30)] hover:bg-[rgba(156,147,232,0.04)] transition-all duration-200 rounded-2xl p-6 cursor-pointer flex flex-col gap-5">
         <div className="flex justify-between items-start gap-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            {market.image_url && (
-              <img
-                src={market.image_url}
-                alt={market.display_name ?? market.identifier}
-                className="w-10 h-10 rounded-full object-cover shrink-0 bg-white/10"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            )}
+            <Avatar market={market} size={40} />
             <div className="flex-1 min-w-0">
               <h3 className="text-white font-sans font-bold text-lg leading-snug truncate group-hover:text-[#B3ABF0] transition-colors">
                 {market.display_name ?? market.identifier}
@@ -155,16 +147,7 @@ function MobileTopicCard({
       <div className="h-full flex flex-col pt-28 px-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            {market.image_url && (
-              <img
-                src={market.image_url}
-                alt={market.display_name ?? market.identifier}
-                className="w-12 h-12 rounded-full object-cover shrink-0 bg-white/10 mt-0.5"
-                onError={(e) => {
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            )}
+            <Avatar market={market} size={48} className="mt-0.5" />
             <div className="flex-1 min-w-0">
               <h2 className="text-2xl font-bold text-white leading-tight truncate">
                 {market.display_name ?? market.identifier}
@@ -288,6 +271,8 @@ function HeroSection({
           className="h-full"
         >
           <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
+            <div className="absolute inset-0" style={backdropStyle(main.identifier)} />
+            <Monogram label={main.display_name ?? main.identifier} size={150} />
             {main.image_url && (
               <img
                 src={main.image_url}
@@ -336,6 +321,8 @@ function HeroSection({
               className="flex-1 min-h-0"
             >
               <div className="group relative h-full rounded-2xl overflow-hidden cursor-pointer bg-white/[0.04]">
+                <div className="absolute inset-0" style={backdropStyle(market.identifier)} />
+                <Monogram label={market.display_name ?? market.identifier} size={64} />
                 {market.image_url && (
                   <img
                     src={market.image_url}
@@ -365,6 +352,71 @@ function HeroSection({
 }
 
 type TopicCategory = "Trending" | "Latest" | "Top";
+
+/** Backdrop untuk market tanpa gambar.
+ *
+ *  Pasar topik (asset_class 6) memang tidak pernah punya gambar — backfill-images
+ *  di backend sengaja melewatinya karena tidak ada logo yang bisa dicari untuk
+ *  sebuah momen budaya. Jadi di halaman /topics ini kondisi normal, bukan kasus
+ *  tepi, dan slot gambar yang kosong tampil sebagai kotak hitam.
+ *
+ *  Gradien diturunkan dari identifier supaya tiap market dapat warna yang tetap
+ *  dan berbeda, tapi masih di dalam rentang violet brand. */
+function backdropStyle(seed: string): CSSProperties {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const from = 248 + (h % 44);
+  const to = 262 + ((h >> 8) % 40);
+  return {
+    backgroundImage: `linear-gradient(148deg, hsl(${from} 58% 32%) 0%, hsl(${to} 52% 16%) 58%, #0D0A18 100%)`,
+  };
+}
+
+function Avatar({
+  market,
+  size,
+  className = "",
+}: {
+  market: { image_url?: string | null; display_name?: string | null; identifier: string };
+  size: number;
+  className?: string;
+}) {
+  const label = market.display_name ?? market.identifier;
+  if (market.image_url) {
+    return (
+      <img
+        src={market.image_url}
+        alt={label}
+        style={{ width: size, height: size }}
+        className={`rounded-full object-cover shrink-0 bg-white/10 ${className}`}
+        onError={(e) => {
+          e.currentTarget.style.display = "none";
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      style={{ width: size, height: size, fontSize: size * 0.38, ...backdropStyle(market.identifier) }}
+      className={`rounded-full shrink-0 flex items-center justify-center font-mono font-bold text-white/70 ${className}`}
+    >
+      {label.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
+
+function Monogram({ label, size }: { label: string; size: number }) {
+  return (
+    <span
+      aria-hidden
+      className="absolute inset-0 flex items-center justify-center font-mono font-bold text-white/[0.12] select-none tracking-tight"
+      style={{ fontSize: size }}
+    >
+      {label.slice(0, 2).toUpperCase()}
+    </span>
+  );
+}
 
 export default function Topics() {
   const pathname = usePathname();

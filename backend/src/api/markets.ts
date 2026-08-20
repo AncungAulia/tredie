@@ -176,24 +176,29 @@ marketsRoutes.get("/", async (c) => {
     );
   }
 
+  // Pasar disembunyikan sampai punya gambar — kecuali kelas 4 (FX) dan 6
+  // (tren/topik), yang memang tidak pernah diberi gambar: backfill-images
+  // sengaja melewatinya karena letter-avatar sudah cukup (lihat admin.ts).
+  // Tanpa pengecualian ini, seluruh pasar topik ikut tersembunyi — padahal
+  // /topics adalah halaman default aplikasi.
   const rows =
     classes !== null
       ? await sql<db.MarketRow[]>`
-          SELECT * FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
+          SELECT * FROM markets WHERE asset_class = ANY(${classes as any}) AND (image_url IS NOT NULL OR asset_class IN (4, 6))
           ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `
       : await sql<db.MarketRow[]>`
-          SELECT * FROM markets WHERE image_url IS NOT NULL
+          SELECT * FROM markets WHERE (image_url IS NOT NULL OR asset_class IN (4, 6))
           ORDER BY ${sortCol} ${dir} LIMIT ${limit} OFFSET ${offset}
         `;
 
   const [{ count }] =
     classes !== null
       ? await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any}) AND image_url IS NOT NULL
+          SELECT COUNT(*)::bigint as count FROM markets WHERE asset_class = ANY(${classes as any}) AND (image_url IS NOT NULL OR asset_class IN (4, 6))
         `
       : await sql<{ count: bigint }[]>`
-          SELECT COUNT(*)::bigint as count FROM markets WHERE image_url IS NOT NULL
+          SELECT COUNT(*)::bigint as count FROM markets WHERE (image_url IS NOT NULL OR asset_class IN (4, 6))
         `;
 
   // Bulk-fetch 24h aggregates so list view doesn't N+1.
