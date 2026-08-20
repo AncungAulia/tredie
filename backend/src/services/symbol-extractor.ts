@@ -11,6 +11,14 @@ export interface ExtractionResult {
 
 /** Pull the first short phrase out of LLM output. Strips markdown, code fences,
  *  and trailing punctuation. Caps at 60 chars so normalizeTrendId() can fit. */
+/** LLM kadang balas klarifikasi alih-alih jawaban ketika konteksnya tipis.
+ *  Frasa seperti ini tidak boleh lolos jadi ticker/trend id. */
+function isNonAnswer(phrase: string): boolean {
+  return /^(please|sorry|i (can|cannot|need|am|'m)|as an|there (is|are) no|unable|no clear|none)\b/i.test(
+    phrase.trim(),
+  );
+}
+
 function cleanLLMPhrase(raw: string): string {
   const firstLine = raw.split("\n").map((l) => l.trim()).find((l) => l.length > 0) ?? "";
   return firstLine
@@ -26,6 +34,14 @@ export class SymbolExtractor {
         0,
         2000,
       );
+
+    // Konten kosong/terlalu pendek bikin LLM balas kalimat klarifikasi
+    // ("Please provide the content...") yang lolos cleanLLMPhrase dan jadi
+    // simbol sampah. Berhenti lebih awal daripada menebak dari ampas.
+    if (text.trim().length < 8) {
+      log.debug({ meta }, "Link metadata too thin — skipping extraction");
+      return { symbol: null, confidence: "low" };
+    }
 
     // A. Cashtag
     const cashtag = text.match(/\$([A-Z]{2,10})\b/);
@@ -66,7 +82,7 @@ export class SymbolExtractor {
         "fast",
       );
       const cleaned = cleanLLMPhrase(r.message);
-      const ticker = cleaned.replace(/[^a-zA-Z0-9:]/g, "");
+      const ticker = isNonAnswer(cleaned) ? "" : cleaned.replace(/[^a-zA-Z0-9:]/g, "");
       if (ticker && ticker.toLowerCase() !== "none") {
         const v = await autoClient.validateSymbol(ticker);
         if (v.supported) {
@@ -89,7 +105,7 @@ export class SymbolExtractor {
         "fast",
       );
       const phrase = cleanLLMPhrase(r.message);
-      if (phrase && phrase.toLowerCase() !== "none") {
+      if (phrase && !isNonAnswer(phrase) && phrase.toLowerCase() !== "none") {
         const trendId = elfaClient.normalizeTrendId(phrase);
         if (trendId) {
           log.info({ symbol: trendId, phrase, strategy: "elfa-chat-trend" }, "Symbol extracted");

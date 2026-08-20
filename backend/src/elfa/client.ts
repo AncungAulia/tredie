@@ -1,5 +1,7 @@
 import ky from "ky";
 import { config } from "../config";
+import { geminiChat } from "../ai/gemini-chat";
+import { log } from "../utils/log";
 import { getElfaTrendCache, setElfaTrendCache } from "../db";
 import type {
   TrendingTokenItem,
@@ -120,8 +122,20 @@ export async function elfaChat(
   const body: Record<string, unknown> = { message, analysisType: "chat", speed };
   if (sessionId) body.sessionId = sessionId;
 
-  const res = await elfa.post("/v2/chat", { json: body }).json<ChatResponse>();
-  return { message: res.data.message, sessionId: res.data.sessionId };
+  try {
+    const res = await elfa.post("/v2/chat", { json: body }).json<ChatResponse>();
+    return { message: res.data.message, sessionId: res.data.sessionId };
+  } catch (e: any) {
+    // /v2/chat butuh plan Grow / Pay-as-you-go. Di plan gratis Elfa balas 403,
+    // dan itu bukan kondisi transien — jadi jangan dilempar, fallback ke Gemini
+    // supaya ai-context dan trend extraction tetap jalan.
+    if (e?.response?.status === 403) {
+      log.warn("Elfa /v2/chat 403 (plan-gated) — fallback ke Gemini");
+      const message2 = await geminiChat(message);
+      return { message: message2, sessionId: sessionId ?? "gemini-fallback" };
+    }
+    throw e;
+  }
 }
 
 // ── Trending narratives ──────────────────────────────────────────────────
