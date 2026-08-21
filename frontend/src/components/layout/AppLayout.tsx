@@ -7,7 +7,6 @@ import Sidebar from "./Sidebar";
 import MobileBottomNav from "./MobileBottomNav";
 import { useSwipeNavigation } from "@/hooks/useSwipeNavigation";
 import { SidebarProvider, useSidebar } from "@/contexts/SidebarContext";
-import AccessGate from "@/components/AccessGate";
 
 function AppLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -41,9 +40,7 @@ function AppLayoutInner({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <AccessGate>
-        <AppLayoutInner>{children}</AppLayoutInner>
-      </AccessGate>
+      <AppLayoutInner>{children}</AppLayoutInner>
     </SidebarProvider>
   );
 }
